@@ -4,6 +4,7 @@
 #include <climits>
 
 #include "ComputeFunctions.h"
+#include "PrintFunctions.h"
 #include "Types.h"
 
 std::string secondsToTime(int seconds) {
@@ -93,6 +94,107 @@ void processStats(std::map<std::string, Stats>& stats, const std::string& key, c
         s.fastest = best;
     }
 }
+
+std::map<std::string, Stats> initializeStats()
+{
+    std::map<std::string, Stats> stats;
+    for (const auto& k : DISPLAY_ORDER) {
+        stats[k];
+    }
+	return stats;
+}
+
+void computeAllStats(std::map<std::string, Stats>& stats, const std::vector<Raid>& raids, size_t start)
+{
+    for (const auto& k : DISPLAY_ORDER) {
+        processStats(stats, k, raids, start);
+    }
+}
+
+std::map<std::string, int> computeRecentRaidTimes(const std::vector<Raid>& raids)
+{
+    std::map<std::string, int> recentVal;
+
+    const auto& rr = raids.back();
+    int prep = 0;
+    int olm = rr.times.count("Olm") ? rr.times.at("Olm") : 0;
+    int total = rr.times.at("Raid Completed");
+
+    for (const auto& room : PREP_ROOMS) {
+        if (rr.times.count(room)) prep += rr.times.at(room);
+    }
+
+    recentVal["Pre-Olm"] = prep;
+    recentVal["Olm"] = olm;
+    recentVal["Raid Completed"] = total;
+    recentVal["Between room time"] = total - prep - olm;
+    for (const auto& [k, v] : rr.times) recentVal[k] = v;
+
+    return recentVal;
+}
+
+RoomDistribution computeRoomDistribution(const std::vector<Raid>& raids, size_t start)
+{
+    RoomDistribution rd;
+
+    for (size_t i = start; i < raids.size(); ++i) {
+        const auto& r = raids[i];
+        int count = 0;
+        for (const auto& room : PREP_ROOMS) {
+            if (r.times.count(room)) ++count;
+        }
+        if (count == 5) ++rd.five;
+        else if (count == 6) ++rd.six;
+        else ++rd.other;
+    }
+
+    return rd;
+}
+
+int computeCountPad(const std::map<std::string, Stats>& stats)
+{
+    // Determine width for prep-room count column (for table alignment)
+    int maxPrepCount = 0;
+    for (const auto& room : PREP_ROOMS) {
+        maxPrepCount = std::max(maxPrepCount, stats.at(room).validCount);
+    }
+    return (maxPrepCount == 0) ? 1 : static_cast<int>(std::to_string(maxPrepCount).length());
+}
+
+std::vector<std::tuple<int, std::string, int, std::string>> collectAndSortDiscarded(const std::map<std::string, Stats>& stats)
+{
+	std::vector<std::tuple<int, std::string, int, std::string>> discarded;
+
+    for (const auto& pair : stats) {
+        const auto& st = pair.second;
+        for (const auto& d : st.discarded) discarded.push_back(d);
+    }
+
+    std::sort(discarded.rbegin(), discarded.rend());
+    return discarded;
+}
+
+std::vector<std::pair<std::string, const Stats*>> computeMostCommonRooms(const std::map<std::string, Stats>& stats)
+{
+	std::vector<std::pair<std::string, const Stats*>> common;
+    for (const auto& room : PREP_ROOMS) {
+        const auto& st = stats.at(room);
+        if (st.validCount > 0) common.emplace_back(room, &st);
+    }
+    std::sort(common.begin(), common.end(), [](const auto& a, const auto& b) {
+        return a.second->validCount > b.second->validCount ||
+            (a.second->validCount == b.second->validCount && a.first < b.first);
+        });
+
+    return common;
+}
+
+int computeTotalWidth(bool hasSecondary)
+{
+    return NW + TW + AW + RW + (!hasSecondary ? 0 : RW) + SEP * 4;
+}
+
+
 
 
 
