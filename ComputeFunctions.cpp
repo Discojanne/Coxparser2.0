@@ -231,65 +231,6 @@ void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& points
     }
 }
 
-int computeAveragePPH(const std::vector<Raid>& raids, int& best)
-{
-    double sum = 0.0;
-    int count = 0;
-
-    for (size_t i = 0; i < raids.size(); ++i) {
-        const auto& r = raids[i];
-        if (r.totalPoints > 0 && r.totalSeconds > 0) {
-            sum += r.totalPoints / (r.totalSeconds / 3600.0);
-            ++count;
-            if (r.totalPoints > best)
-				best = static_cast<int>(r.totalPoints);
-        }
-    }
-    return static_cast<int>((count > 0) ? (sum / count) : 0.0);
-}
-
-void computeRecentPPH(const std::vector<Raid>& raids, int& recent, int& recentDiff, int avg)
-{
-    if (!raids.empty()) {
-        const auto& r = raids.back();
-        if (r.totalPoints > 0 && r.totalSeconds > 0) {
-            recent = static_cast<int>(r.totalPoints / (r.totalSeconds / 3600.0));
-			recentDiff = recent - avg;
-        }
-    }
-}
-
-int computeBestPPH(const std::vector<Raid>& raids)
-{
-    double bestPPH = 0.0;
-
-    for (size_t i = 0; i < raids.size(); ++i) {
-        const auto& r = raids[i];
-        if (r.totalPoints > 0 && r.totalSeconds > 0) {
-            double pph = r.totalPoints / (r.totalSeconds / 3600.0);
-            bestPPH = std::max(bestPPH, pph);
-        }
-    }
-    return bestPPH;
-}
-
-int computeAveragePoints(const std::vector<Raid>& raids)
-{
-    double avgPoints = 0.0;
-    int pointCount = 0;
-
-    for (size_t i = 0; i < raids.size(); ++i) {
-        if (raids[i].totalPoints > 0) {
-            avgPoints += raids[i].totalPoints;
-            ++pointCount;
-        }
-    }
-    if (pointCount > 0)
-        avgPoints /= pointCount;
-
-    return avgPoints;
-}
-
 std::string formatRecentValue(double recent, double average, bool useSeconds, bool higherIsBetter)
 {
     if (recent <= 0 || average <= 0)
@@ -335,7 +276,92 @@ int visibleLength(const std::string& s)
     return len;
 }
 
+PointsAggregate computePointsStats(const std::vector<Raid>& raids)
+{
+    PointsAggregate out;
 
+    double sumPPH = 0.0;
+    double sumPoints = 0.0;
+    int countPPH = 0;
+    int countPoints = 0;
+
+    for (const auto& r : raids)
+    {
+        if (r.totalPoints > 0)
+        {
+            sumPoints += r.totalPoints;
+            ++countPoints;
+            out.bestPoints = std::max(out.bestPoints, r.totalPoints);
+        }
+
+        if (r.totalPoints > 0 && r.totalSeconds > 0)
+        {
+            double pph = r.totalPoints / (r.totalSeconds / 3600.0);
+            sumPPH += pph;
+            ++countPPH;
+            out.bestPPH = std::max(out.bestPPH, static_cast<int>(pph));
+        }
+    }
+
+    if (countPoints > 0)
+        out.avgPoints = static_cast<int>(sumPoints / countPoints);
+
+    if (countPPH > 0)
+        out.avgPPH = static_cast<int>(sumPPH / countPPH);
+
+    // recent
+    if (!raids.empty())
+    {
+        const auto& r = raids.back();
+        if (r.totalPoints > 0 && r.totalSeconds > 0)
+            out.recentPPH = static_cast<int>(r.totalPoints / (r.totalSeconds / 3600.0));
+    }
+
+    return out;
+}
+
+std::vector<RoomPPHResult>computeRoomPPH(const std::vector<Raid>& raids)
+{
+    std::map<std::string, RoomPPHStats> acc;
+
+    for (const auto& r : raids)
+    {
+        if (r.totalPoints <= 0 || r.totalSeconds <= 0)
+            continue;
+
+        double raidPPH = r.totalPoints / (r.totalSeconds / 3600.0);
+
+        for (const auto& [room, time] : r.times)
+        {
+            if (!isPrepRoom(room))
+                continue;
+
+            acc[room].sumPPH += raidPPH;
+            acc[room].count++;
+        }
+    }
+
+    std::vector<RoomPPHResult> result;
+
+    for (const auto& [room, stats] : acc)
+    {
+        if (stats.count < 5)   // avoid noise from rare rooms
+            continue;
+
+        result.push_back({
+            room,
+            static_cast<int>(std::round(stats.sumPPH / stats.count)),
+            stats.count
+            });
+    }
+
+    std::sort(result.begin(), result.end(),
+        [](const RoomPPHResult& a, const RoomPPHResult& b) {
+            return a.avgPPH > b.avgPPH;
+        });
+
+    return result;
+}
 
 
 

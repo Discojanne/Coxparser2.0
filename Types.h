@@ -30,6 +30,11 @@ const std::vector<std::string> PREP_ROOMS = {
     "Vespula", "Tightrope", "Guardians", "Vasa", "Mystics", "Muttadiles"
 };
 
+inline bool isPrepRoom(const std::string& room)
+{
+    return std::find(PREP_ROOMS.begin(), PREP_ROOMS.end(), room) != PREP_ROOMS.end();
+}
+
 const std::map<std::string, unsigned int> ROOM_REFERENCE_FOR_OUTLIERS = {
     {"Tekton", 30},
     {"Crabs", 45},
@@ -57,4 +62,18 @@ const std::vector<std::string> DISPLAY_ORDER = {
     "Between room time",
 	"Total Points",
     "PPH"
+};
+
+// 2 structures for estimating pph per room
+struct RoomPPHStats
+{
+    int count = 0;
+    double sumPPH = 0.0;
+};
+
+struct RoomPPHResult
+{
+    std::string room;
+    int avgPPH;
+    int raids;
 };

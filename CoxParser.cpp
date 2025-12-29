@@ -14,17 +14,14 @@
 #include "PointsLoader.h"
 
 // ========================== CONFIG =========================
-const int PAST_RAIDS = -1;
+const int PAST_RAIDS = 100;
 const std::string PRIMARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Disco Turtle_CoxTimes.txt";
 const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Kaudal_CoxTimes.txt";
 const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
 // ===========================================================
 // 
-// =========================== TODO ===========================
-// - Calc all points stuff at once.
+// =========================== TODO ==========================
 // - Fix prep room name inconsistencies (Ice demon vs Ice Demon).
-// - Design a new table ranking rooms based on pph.
-// - Make sure it works with PAST_RAIDS set to any number.
 // ===========================================================
 
 void coxParser() {
@@ -41,8 +38,6 @@ void coxParser() {
     std::string secondaryUser = getUsername(SECONDARY_FILE);
     size_t secondaryStart = (PAST_RAIDS == -1) ? 0 : secondaryRaids.size() - std::min<size_t>(PAST_RAIDS, secondaryRaids.size());
 
-
-
 	// Load points and process points mapping
     auto pointsMap = loadPoints(PRIMARY_FILE, POINTS_FILE);
 	mapPointsToRaids(primaryRaids, pointsMap, true, PAST_RAIDS);
@@ -52,18 +47,23 @@ void coxParser() {
         return;
     }
 
-    PointsToPrint pphStats;
-    PointsToPrint pointStats;
-    pphStats.average = computeAveragePPH(primaryRaids, pointStats.best);
-	pphStats.best = computeBestPPH(primaryRaids);
-	computeRecentPPH(primaryRaids, pphStats.recent, pphStats.recentDiff, pphStats.average);
-
-    pointStats.average = computeAveragePoints(primaryRaids);
-	pointStats.recent = primaryRaids.back().totalPoints;
-	pointStats.recentDiff = pointStats.recent - pointStats.average;
 
 
 	// Compute all statistics
+    auto agg = computePointsStats(primaryRaids);
+
+    PointsToPrint pointStats{};
+    pointStats.best = agg.bestPoints;
+    pointStats.average = agg.avgPoints;
+    pointStats.recent = primaryRaids.back().totalPoints;
+    pointStats.recentDiff = pointStats.recent - pointStats.average;
+
+    PointsToPrint pphStats{};
+    pphStats.best = agg.bestPPH;
+    pphStats.average = agg.avgPPH;
+    pphStats.recent = agg.recentPPH;
+    pphStats.recentDiff = pphStats.recent - pphStats.average;
+
     std::map<std::string, Stats> primaryStats, secondaryStats;
 	primaryStats = initializeStats();
     if (hasSecondary)
@@ -85,6 +85,8 @@ void coxParser() {
     if (hasSecondary)
 		secondaryDiscarded = collectAndSortDiscarded(secondaryStats);
 
+    auto roomPPH = computeRoomPPH(primaryRaids);
+
     int totalWidth = computeTotalWidth(hasSecondary); // For table frame
 
 
@@ -97,6 +99,8 @@ void coxParser() {
 
 	printStatsTable(primaryStats, secondaryStats, recentVal, secondaryUser, countPadding,
         totalWidth, hasSecondary, pphStats, pointStats);
+
+    printRoomPPHTable(roomPPH);
 
 	printMostCommonPrepRooms(common, rd.five, rd.six, rd.other, primaryRaids.size());
 

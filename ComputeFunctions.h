@@ -12,6 +12,17 @@ struct RoomDistribution {
     int other = 0;
 };
 
+// Used when computing points statistics
+struct PointsAggregate
+{
+    int bestPPH = 0;
+    int avgPPH = 0;
+    int recentPPH = 0;
+    int bestPoints = 0;
+    int avgPoints = 0;
+};
+
+
 std::string secondsToTime(int seconds);
 
 void processStats(std::map<std::string, Stats>& stats, const std::string& key, const std::vector<Raid>& raids, size_t start);
@@ -36,15 +47,10 @@ int computeTotalWidth(bool hasSecondary);
 
 void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap, bool deleteIfNoScore, int numRecent = -1);
 
-int computeAveragePPH(const std::vector<Raid>& raids, int& best);
-
-void computeRecentPPH(const std::vector<Raid>& raids, int& recent, int& recentDiff, int avg);
-
-int computeBestPPH(const std::vector<Raid>& raids);
-
-int computeAveragePoints(const std::vector<Raid>& raids);
-
 std::string formatRecentValue(double recent, double average, bool useSeconds, bool higherIsBetter);
 
 int visibleLength(const std::string& s);
 
+PointsAggregate computePointsStats(const std::vector<Raid>& raids);
+
+std::vector<RoomPPHResult>computeRoomPPH(const std::vector<Raid>& raids);

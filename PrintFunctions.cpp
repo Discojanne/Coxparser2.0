@@ -184,3 +184,27 @@ std::string padRightAligned(const std::string& s, int width)
     return std::string(pad, ' ') + s;
 }
 
+void printRoomPPHTable(const std::vector<RoomPPHResult>& rows)
+{
+    constexpr int NW = 18;
+    constexpr int PW = 10;
+    constexpr int CW = 8;
+
+    std::cout << "Room Efficiency (PPH)\n";
+    std::cout << std::string(38, '=') << "\n";
+    std::cout << std::left << std::setw(NW) << "Room"
+        << std::right << std::setw(PW) << "Avg PPH"
+        << std::right << std::setw(CW) << "Raids\n";
+    std::cout << std::string(38, '-') << "\n";
+
+    for (const auto& r : rows)
+    {
+        std::cout << std::left << std::setw(NW) << r.room
+            << std::right << std::setw(PW) << r.avgPPH
+            << std::right << std::setw(CW) << r.raids
+            << "\n";
+    }
+
+    std::cout << std::string(38, '=') << "\n\n";
+}
+

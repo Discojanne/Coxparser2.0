@@ -41,3 +41,5 @@ inline std::string emptyVS()
 }
 
 std::string padRightAligned(const std::string& s, int width);
+
+void printRoomPPHTable(const std::vector<RoomPPHResult>& rows);
