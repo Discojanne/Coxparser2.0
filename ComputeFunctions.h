@@ -33,3 +33,18 @@ std::vector<std::tuple<int, std::string, int, std::string>> collectAndSortDiscar
 std::vector<std::pair<std::string, const Stats*>> computeMostCommonRooms(const std::map<std::string, Stats>& stats);
 
 int computeTotalWidth(bool hasSecondary);
+
+void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap, bool deleteIfNoScore = true);
+
+int computeAveragePPH(const std::vector<Raid>& raids, int& best);
+
+void computeRecentPPH(const std::vector<Raid>& raids, int& recent, int& recentDiff, int avg);
+
+int computeBestPPH(const std::vector<Raid>& raids);
+
+int computeAveragePoints(const std::vector<Raid>& raids);
+
+std::string formatRecentValue(double recent, double average, bool useSeconds, bool higherIsBetter);
+
+int visibleLength(const std::string& s);
+

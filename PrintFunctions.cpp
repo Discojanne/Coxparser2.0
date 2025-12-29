@@ -5,65 +5,98 @@
 #include "ComputeFunctions.h"
 
 
+
 void printRaidStatisticsHeader(const std::string& primaryUser, const std::string& secondaryUser, bool hasSecondary, int totalWidth)
 {
     std::cout << "Raid Statistics - Primary: " << primaryUser << "\n";
     std::cout << std::string(totalWidth, '=') << "\n";
 
     std::cout << std::left << std::setw(NW) << "Room" << std::string(SEP, ' ')
-        << std::right << std::setw(TW) << "Fastest" << std::string(SEP, ' ')
-        << std::right << std::setw(AW) << "Average (count)" << std::string(SEP, ' ')
+        << std::right << std::setw((TW)) << "Best" << std::string(SEP, ' ')
+        << std::right << std::setw(AW) << "Average" << std::string(SEP, ' ')
         << std::right << std::setw(RW) << "Recent";
     if (hasSecondary)
-        std::cout << std::string(SEP, ' ') << std::right << std::setw(RW) << ("vs " + secondaryUser);
+        std::cout << std::string(SEP, ' ') << std::right << std::setw(CW) << ("vs " + secondaryUser);
     std::cout << "\n";
 
     std::cout << std::string(totalWidth, '-') << "\n";
 }
 
 void printStatsTable(const std::map<std::string, Stats>& primaryStats, const std::map<std::string, Stats>& secondaryStats, const std::map<std::string,
-    int>& recentVal, const std::string& secondaryUser, int countPad, int totalWidth, bool hasSecondary)
+    int>& recentVal, const std::string& secondaryUser, int countPad, int totalWidth, bool hasSecondary, PointsToPrint PPH, PointsToPrint Points)
 {
     for (const auto& key : DISPLAY_ORDER) {
         auto it = primaryStats.find(key);
         if (it == primaryStats.end()) continue;
         const auto& ps = it->second;
 
+        bool isTotalPoints = (key == "Total Points");
+        bool isPPH = (key == "PPH");
+        bool isPointsRow = isTotalPoints || isPPH;
+
+
         bool isPrepRoom = std::find(PREP_ROOMS.begin(), PREP_ROOMS.end(), key) != PREP_ROOMS.end();
         if (ps.validCount == 0 && isPrepRoom) continue;
 
-        std::string fastestStr = (ps.fastest <= 0) ? "--:--" : secondsToTime(ps.fastest);
+        std::string bestStr = "--:--";
 
-        std::ostringstream avgOss;
-        if (isPrepRoom) {
-            avgOss << secondsToTime(static_cast<int>(std::round(ps.avg))) << " ("
-                << std::setw(countPad) << std::right << ps.validCount << ")";
+        if (isTotalPoints && Points.best > 0) {
+            bestStr = std::to_string(Points.best);
         }
-        else {
-            avgOss << secondsToTime(static_cast<int>(std::round(ps.avg)));
+        else if (isPPH && PPH.best > 0) {
+            bestStr = std::to_string(PPH.best);
+        }
+        else if (!isPointsRow) {
+            bestStr = (ps.fastest <= 0) ? "--:--" : secondsToTime(ps.fastest);
         }
 
-        // Recent - always exactly 12 visible characters
-        std::string recentStr = "--:--  0:00";  // default = no time
-        if (recentVal.count(key)) {
-            std::string tstr = secondsToTime(recentVal.at(key));
-            double diff = recentVal.at(key) - ps.avg;
-            int diffAbs = static_cast<int>(std::round(std::abs(diff)));
-            std::string dstr = secondsToTime(diffAbs);
 
-            std::string sign = " ";  // always start with space
-            std::string col = COLOR_RESET;
-            if (std::abs(diff) >= 0.5) {
-                sign = (diff < 0 ? "-" : "+");
-                col = (diff < 0 ? COLOR_GREEN : COLOR_RED);
-            }
 
-            recentStr = tstr + " " + col + sign + dstr + COLOR_RESET;
+        std::string avgStr = "--:--";
+
+        if (isTotalPoints && Points.average > 0) {
+            avgStr = std::to_string(Points.average);
         }
+        else if (isPPH && PPH.average > 0) {
+            avgStr = std::to_string(PPH.average);
+        }
+        else if (!isPointsRow) {
+            avgStr = secondsToTime(static_cast<int>(std::round(ps.avg)));
+        }
+
+
+
+
+        std::string recentStr = "-          -";
+
+        if (isTotalPoints && Points.recent > 0) {
+            recentStr = formatRecentValue(
+                Points.recent,
+                Points.average,
+                false, true);
+        }
+        else if (isPPH && PPH.recent > 0) {
+            recentStr = formatRecentValue(
+                PPH.recent,
+                PPH.average,
+                false, true);
+        }
+        else if (!isPointsRow && recentVal.count(key)) {
+            recentStr = formatRecentValue(
+                recentVal.at(key),
+                ps.avg,
+                true, false);
+        }
+
+
+
 
         // vs - same
-        std::string compStr = "           0:00";
-        if (hasSecondary) {
+        //std::string compStr = isPointsRow ? "" : "           0:00";
+        std::string compStr = "";
+
+
+        if (hasSecondary && !isPointsRow) {
             auto ssIt = secondaryStats.find(key);
             if (ssIt != secondaryStats.end()) {
                 const auto& ss = ssIt->second;
@@ -80,14 +113,16 @@ void printStatsTable(const std::map<std::string, Stats>& primaryStats, const std
         }
 
         std::cout << std::left << std::setw(NW) << key << std::string(SEP, ' ')
-            << std::right << std::setw(TW) << fastestStr << std::string(SEP, ' ')
-            << std::right << std::setw(AW) << avgOss.str() << std::string(SEP, ' ')
-            << std::right << std::setw(RW) << recentStr;
+            << std::right << std::setw(TW) << bestStr << std::string(SEP, ' ')
+            << std::right << std::setw(AW) << avgStr << std::string(SEP, ' ')
+            << padRightAligned(recentStr, RW);
+
+
         if (hasSecondary)
-            std::cout << std::string(SEP, ' ') << std::right << std::setw(RW) << compStr;
+            std::cout << std::string(SEP, ' ') << std::right << std::setw(CW) << compStr;
         std::cout << "\n";
 
-        if (key == "Pre-Olm" || key == "Raid Completed")
+        if (key == "Pre-Olm" || key == "Raid Completed" || key == "Between room time")
             std::cout << std::string(totalWidth, '-') << "\n";
     }
     std::cout << std::string(totalWidth, '=') << "\n\n";
@@ -141,3 +176,11 @@ void printAnalysisSummary(const std::string& primaryUser, int totalRaids, bool h
     }
     std::cout << "\n";
 }
+
+std::string padRightAligned(const std::string& s, int width)
+{
+    int pad = width - visibleLength(s);
+    if (pad <= 0) return s;
+    return std::string(pad, ' ') + s;
+}
+

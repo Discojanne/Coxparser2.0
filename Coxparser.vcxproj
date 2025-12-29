@@ -124,18 +124,18 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\PointsLoaderLib\PointsLoader.cpp" />
     <ClCompile Include="ComputeFunctions.cpp" />
     <ClCompile Include="CoxParser.cpp" />
     <ClCompile Include="InputFunctions.cpp" />
+    <ClCompile Include="PointsLoader.cpp" />
     <ClCompile Include="PrintFunctions.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\PointsLoaderLib\PointsLoader.h" />
     <ClInclude Include="ComputeFunctions.h" />
     <ClInclude Include="CoxParser.h" />
     <ClInclude Include="InputFunctions.h" />
+    <ClInclude Include="PointsLoader.h" />
     <ClInclude Include="PrintFunctions.h" />
     <ClInclude Include="Types.h" />
   </ItemGroup>

@@ -191,8 +191,137 @@ std::vector<std::pair<std::string, const Stats*>> computeMostCommonRooms(const s
 
 int computeTotalWidth(bool hasSecondary)
 {
-    return NW + TW + AW + RW + (!hasSecondary ? 0 : RW) + SEP * 4;
+    return 2 + NW + TW + AW + RW + (!hasSecondary ? 0 : CW) + SEP * 4;
 }
+
+void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap, bool deleteIfNoScore)
+{
+    // First pass: assign totals for raids that have a points entry.
+    for (auto& r : raids) {
+        auto it = pointsMap.find(r.kc);
+        if (it != pointsMap.end()) {
+            r.totalPoints = it->second;
+            auto tt = r.times.find("Raid Completed");
+            if (tt != r.times.end()) r.totalSeconds = tt->second;
+            else r.totalSeconds = 0; // fallback if the time key is missing
+        } else {
+            // Explicitly mark missing score (optional; keeps original default -1 if preferred)
+            r.totalPoints = -1;
+        }
+    }
+
+    // Second pass: remove raids without a score if requested.
+    if (deleteIfNoScore) {
+        std::erase_if(raids, [&](const Raid& r) {
+            return pointsMap.find(r.kc) == pointsMap.end();
+        });
+    }
+}
+
+int computeAveragePPH(const std::vector<Raid>& raids, int& best)
+{
+    double sum = 0.0;
+    int count = 0;
+
+    for (size_t i = 0; i < raids.size(); ++i) {
+        const auto& r = raids[i];
+        if (r.totalPoints > 0 && r.totalSeconds > 0) {
+            sum += r.totalPoints / (r.totalSeconds / 3600.0);
+            ++count;
+            if (r.totalPoints > best)
+				best = static_cast<int>(r.totalPoints);
+        }
+    }
+    return static_cast<int>((count > 0) ? (sum / count) : 0.0);
+}
+
+void computeRecentPPH(const std::vector<Raid>& raids, int& recent, int& recentDiff, int avg)
+{
+    if (!raids.empty()) {
+        const auto& r = raids.back();
+        if (r.totalPoints > 0 && r.totalSeconds > 0) {
+            recent = static_cast<int>(r.totalPoints / (r.totalSeconds / 3600.0));
+			recentDiff = recent - avg;
+        }
+    }
+}
+
+int computeBestPPH(const std::vector<Raid>& raids)
+{
+    double bestPPH = 0.0;
+
+    for (size_t i = 0; i < raids.size(); ++i) {
+        const auto& r = raids[i];
+        if (r.totalPoints > 0 && r.totalSeconds > 0) {
+            double pph = r.totalPoints / (r.totalSeconds / 3600.0);
+            bestPPH = std::max(bestPPH, pph);
+        }
+    }
+    return bestPPH;
+}
+
+int computeAveragePoints(const std::vector<Raid>& raids)
+{
+    double avgPoints = 0.0;
+    int pointCount = 0;
+
+    for (size_t i = 0; i < raids.size(); ++i) {
+        if (raids[i].totalPoints > 0) {
+            avgPoints += raids[i].totalPoints;
+            ++pointCount;
+        }
+    }
+    if (pointCount > 0)
+        avgPoints /= pointCount;
+
+    return avgPoints;
+}
+
+std::string formatRecentValue(double recent, double average, bool useSeconds, bool higherIsBetter)
+{
+    if (recent <= 0 || average <= 0)
+        return "-          -";
+
+    double diff = recent - average;
+    double absDiff = std::abs(diff);
+
+    std::string sign = " ";
+    std::string col = COLOR_RESET;
+
+    if (absDiff >= (useSeconds ? 0.5 : 1.0)) {
+        sign = (diff < 0 ? "-" : "+");
+
+        bool better = higherIsBetter ? (diff > 0) : (diff < 0);
+        col = better ? COLOR_GREEN : COLOR_RED;
+    }
+
+    std::string valStr = useSeconds
+        ? secondsToTime(static_cast<int>(std::round(recent)))
+        : std::to_string(static_cast<int>(std::round(recent)));
+
+    std::string diffStr = useSeconds
+        ? secondsToTime(static_cast<int>(std::round(absDiff)))
+        : std::to_string(static_cast<int>(std::round(absDiff)));
+
+    return valStr + " " + col + sign + diffStr + COLOR_RESET;
+}
+
+int visibleLength(const std::string& s)
+{
+    int len = 0;
+    bool inEscape = false;
+
+    for (char c : s) {
+        if (c == '\x1b')
+            inEscape = true;
+        else if (inEscape && c == 'm')
+            inEscape = false;
+        else if (!inEscape)
+            ++len;
+    }
+    return len;
+}
+
 
 
 

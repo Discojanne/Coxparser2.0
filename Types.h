@@ -11,6 +11,8 @@
 struct Raid {
     int kc;
     std::map<std::string, int> times;
+    int totalSeconds = 0;
+    int totalPoints = -1;
 };
 
 struct Stats {
@@ -52,5 +54,7 @@ const std::vector<std::string> DISPLAY_ORDER = {
     "Olm phase 2", "Olm phase 3", "Olm head",
     "Olm",
     "Raid Completed",
-    "Between room time"
+    "Between room time",
+	"Total Points",
+    "PPH"
 };
