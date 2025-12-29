@@ -37,24 +37,21 @@ void coxParser() {
     readRaids(SECONDARY_FILE, secondaryRaids);
 	bool hasSecondary = !secondaryRaids.empty();
 
-    size_t primaryStart = (PAST_RAIDS == -1) ? 0 : primaryRaids.size() - std::min<size_t>(PAST_RAIDS, primaryRaids.size());
-    size_t secondaryStart = (PAST_RAIDS == -1) ? 0 : secondaryRaids.size() - std::min<size_t>(PAST_RAIDS, secondaryRaids.size());
-
     std::string primaryUser = getUsername(PRIMARY_FILE);
     std::string secondaryUser = getUsername(SECONDARY_FILE);
+    size_t secondaryStart = (PAST_RAIDS == -1) ? 0 : secondaryRaids.size() - std::min<size_t>(PAST_RAIDS, secondaryRaids.size());
 
 
 
 	// Load points and process points mapping
     auto pointsMap = loadPoints(PRIMARY_FILE, POINTS_FILE);
-	mapPointsToRaids(primaryRaids, pointsMap, true);
-
-    int totalRaids = primaryRaids.size() - primaryStart;
-    if (totalRaids == 0)
+	mapPointsToRaids(primaryRaids, pointsMap, true, PAST_RAIDS);
+    if (primaryRaids.empty())
     {
         std::cout << "No raids to analyze.\n";
         return;
     }
+
     PointsToPrint pphStats;
     PointsToPrint pointStats;
     pphStats.average = computeAveragePPH(primaryRaids, pointStats.best);
@@ -71,16 +68,16 @@ void coxParser() {
 	primaryStats = initializeStats();
     if (hasSecondary)
 	    secondaryStats = initializeStats();
-	computeAllStats(primaryStats, primaryRaids, primaryStart);
+	computeAllStats(primaryStats, primaryRaids);
     if (hasSecondary)
 		computeAllStats(secondaryStats, secondaryRaids, secondaryStart);
 
     std::map<std::string, int> recentVal;
-    if (primaryRaids.size() > primaryStart)
+    if (primaryRaids.size() > 1)
 	    recentVal = computeRecentRaidTimes(primaryRaids);
 
     std::vector<std::pair<std::string, const Stats*>> common = computeMostCommonRooms(primaryStats);
-    RoomDistribution rd = computeRoomDistribution(primaryRaids, primaryStart);
+    RoomDistribution rd = computeRoomDistribution(primaryRaids);
     int countPadding = computeCountPad(primaryStats);
 
     std::vector<std::tuple<int, std::string, int, std::string>> primaryDiscarded, secondaryDiscarded;
@@ -93,7 +90,7 @@ void coxParser() {
 
 	
 	// Print results
-    printAnalysisSummary(primaryUser, totalRaids, hasSecondary, secondaryUser, PAST_RAIDS,
+    printAnalysisSummary(primaryUser, primaryRaids.size(), hasSecondary, secondaryUser, PAST_RAIDS,
         secondaryRaids.size() - secondaryStart);
 
 	printRaidStatisticsHeader(primaryUser, secondaryUser, hasSecondary, totalWidth);
@@ -101,7 +98,7 @@ void coxParser() {
 	printStatsTable(primaryStats, secondaryStats, recentVal, secondaryUser, countPadding,
         totalWidth, hasSecondary, pphStats, pointStats);
 
-	printMostCommonPrepRooms(common, rd.five, rd.six, rd.other, totalRaids);
+	printMostCommonPrepRooms(common, rd.five, rd.six, rd.other, primaryRaids.size());
 
 	printDiscardedOutliers(primaryDiscarded, primaryUser, "Primary");
 	if (hasSecondary)

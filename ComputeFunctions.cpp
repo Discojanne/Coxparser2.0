@@ -133,11 +133,11 @@ std::map<std::string, int> computeRecentRaidTimes(const std::vector<Raid>& raids
     return recentVal;
 }
 
-RoomDistribution computeRoomDistribution(const std::vector<Raid>& raids, size_t start)
+RoomDistribution computeRoomDistribution(const std::vector<Raid>& raids)
 {
     RoomDistribution rd;
 
-    for (size_t i = start; i < raids.size(); ++i) {
+    for (size_t i = 0; i < raids.size(); ++i) {
         const auto& r = raids[i];
         int count = 0;
         for (const auto& room : PREP_ROOMS) {
@@ -194,27 +194,40 @@ int computeTotalWidth(bool hasSecondary)
     return 2 + NW + TW + AW + RW + (!hasSecondary ? 0 : CW) + SEP * 4;
 }
 
-void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap, bool deleteIfNoScore)
+void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap, bool deleteIfNoScore, int numRecent)
 {
     // First pass: assign totals for raids that have a points entry.
     for (auto& r : raids) {
         auto it = pointsMap.find(r.kc);
         if (it != pointsMap.end()) {
             r.totalPoints = it->second;
-            auto tt = r.times.find("Raid Completed");
-            if (tt != r.times.end()) r.totalSeconds = tt->second;
-            else r.totalSeconds = 0; // fallback if the time key is missing
-        } else {
+        }
+        else {
             // Explicitly mark missing score (optional; keeps original default -1 if preferred)
             r.totalPoints = -1;
         }
+        auto tt = r.times.find("Raid Completed");
+        if (tt != r.times.end()) r.totalSeconds = tt->second;
+        else r.totalSeconds = 0; // fallback if the time key is missing
     }
-
     // Second pass: remove raids without a score if requested.
     if (deleteIfNoScore) {
         std::erase_if(raids, [&](const Raid& r) {
-            return pointsMap.find(r.kc) == pointsMap.end();
-        });
+            return r.totalPoints < 0;
+            });
+    }
+    // Third pass: keep only the numRecent most recent raids (assuming higher kc is more recent)
+    if (numRecent > 0) {
+        std::sort(raids.begin(), raids.end(), [](const Raid& a, const Raid& b) {
+            return a.kc > b.kc;
+            });
+        if (raids.size() > static_cast<size_t>(numRecent)) {
+            raids.erase(raids.begin() + numRecent, raids.end());
+        }
+        // Restore ascending order (increasing KC) to maintain original assumptions
+        std::sort(raids.begin(), raids.end(), [](const Raid& a, const Raid& b) {
+            return a.kc < b.kc;
+            });
     }
 }
 

@@ -18,12 +18,12 @@ void processStats(std::map<std::string, Stats>& stats, const std::string& key, c
 
 std::map<std::string, Stats> initializeStats();
 
-void computeAllStats(std::map<std::string, Stats>& stats, const std::vector<Raid>& raids, size_t start);
+void computeAllStats(std::map<std::string, Stats>& stats, const std::vector<Raid>& raids, size_t start = 0);
 
 std::map<std::string, int> computeRecentRaidTimes(const std::vector<Raid>& raids);
 
 
-RoomDistribution computeRoomDistribution(const std::vector<Raid>& raids, size_t start);
+RoomDistribution computeRoomDistribution(const std::vector<Raid>& raids);
 
 int computeCountPad(const std::map<std::string, Stats>& stats);
 
@@ -34,7 +34,7 @@ std::vector<std::pair<std::string, const Stats*>> computeMostCommonRooms(const s
 
 int computeTotalWidth(bool hasSecondary);
 
-void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap, bool deleteIfNoScore = true);
+void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap, bool deleteIfNoScore, int numRecent = -1);
 
 int computeAveragePPH(const std::vector<Raid>& raids, int& best);
 
