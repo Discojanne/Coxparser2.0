@@ -1,12 +1,11 @@
 #include <iostream>
-#include <iomanip>
 #include <algorithm>
-#include <sstream>
-#include <tuple>
 #include <fstream>
 #include <filesystem>
+#include <cctype>
 
 #include "InputFunctions.h"
+
 
 std::string getUsername(const std::string& path) {
     std::filesystem::path p(path);

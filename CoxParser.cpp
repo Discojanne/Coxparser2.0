@@ -1,11 +1,6 @@
-#include <iostream>
-#include <fstream>
-#include <set>
+﻿#include <iostream>
 #include <iomanip>
 #include <cmath>
-#include <tuple>
-#include <climits>
-#include <filesystem>
 
 #include "PrintFunctions.h"
 #include "CoxParser.h"
@@ -13,96 +8,117 @@
 #include "ComputeFunctions.h"
 #include "PointsLoader.h"
 
-// ========================== CONFIG =========================
-const int PAST_RAIDS = 100;
-const std::string PRIMARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Disco Turtle_CoxTimes.txt";
-const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Kaudal_CoxTimes.txt";
-const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
-// ===========================================================
-// 
-// =========================== TODO ==========================
-// - Fix prep room name inconsistencies (Ice demon vs Ice Demon).
-// ===========================================================
 
-void coxParser() {
+    // ========================== CONFIG =========================
+constexpr int ALL_RAIDS = -1;
+constexpr int PAST_RAIDS = ALL_RAIDS;   // ALL_RAIDS or a number
+constexpr int SESSION_RAIDS = 10;       // Number of raids to consider for "Last N" averages
+const std::string PRIMARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Disco Turtle_CoxTimes.txt";
+const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\KGod_CoxTimes.txt";
+//                                  ^ Cox analytics export files
+const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
+//                                  ^ Raid data tracker points file, to match points to the primary raids
+
+
+
+
+void runCoxAnalytics() {
+    // ========================== INPUT ==========================
+	// Read primary / secondary raid logs from Cox Analytics
+
+	// A raid contains kc, times per room, total time, total points
     std::vector<Raid> primaryRaids, secondaryRaids;
 
     if (!readRaids(PRIMARY_FILE, primaryRaids)) {
         std::cerr << "Failed to read primary file\n";
         return;
     }
-    readRaids(SECONDARY_FILE, secondaryRaids);
-	bool hasSecondary = !secondaryRaids.empty();
+    bool secondaryOk = readRaids(SECONDARY_FILE, secondaryRaids);
+    bool hasSecondary = secondaryOk && !secondaryRaids.empty();
 
     std::string primaryUser = getUsername(PRIMARY_FILE);
     std::string secondaryUser = getUsername(SECONDARY_FILE);
-    size_t secondaryStart = (PAST_RAIDS == -1) ? 0 : secondaryRaids.size() - std::min<size_t>(PAST_RAIDS, secondaryRaids.size());
 
-	// Load points and process points mapping
+    size_t secondaryStart = 0;
+    if (hasSecondary && PAST_RAIDS != ALL_RAIDS) {
+        secondaryStart = secondaryRaids.size() > static_cast<size_t>(PAST_RAIDS)
+            ? secondaryRaids.size() - PAST_RAIDS
+            : 0;
+    }
+
+    // ======================= POINTS JOIN =======================
+	// Load raid points from Raid Data Tracker and attach to primary raids
+    // IMPORTANT: order matters (attach -> filter -> trim)
+
     auto pointsMap = loadPoints(PRIMARY_FILE, POINTS_FILE);
-	mapPointsToRaids(primaryRaids, pointsMap, true, PAST_RAIDS);
+    attachPointsToRaids(primaryRaids, pointsMap);
+    filterRaidsWithPoints(primaryRaids);
+    keepMostRecentRaids(primaryRaids, PAST_RAIDS);
+
     if (primaryRaids.empty())
     {
         std::cout << "No raids to analyze.\n";
         return;
     }
 
+	finalizeDerivedRaidTimes(primaryRaids);
+    if (hasSecondary)
+        finalizeDerivedRaidTimes(secondaryRaids);
 
 
-	// Compute all statistics
+
+
+    // ====================== AGGREGATION ========================
+    // Compute per-room, per-raid, and points-based statistics
+
     auto agg = computePointsStats(primaryRaids);
 
-    PointsToPrint pointStats{};
-    pointStats.best = agg.bestPoints;
-    pointStats.average = agg.avgPoints;
-    pointStats.recent = primaryRaids.back().totalPoints;
-    pointStats.recentDiff = pointStats.recent - pointStats.average;
-
-    PointsToPrint pphStats{};
-    pphStats.best = agg.bestPPH;
-    pphStats.average = agg.avgPPH;
-    pphStats.recent = agg.recentPPH;
-    pphStats.recentDiff = pphStats.recent - pphStats.average;
+    PointsToPrint pointStats = makePointsToPrint(agg.bestPoints, agg.avgPoints,
+        primaryRaids.back().totalPoints);
+    PointsToPrint pphStats = makePointsToPrint(agg.bestPPH, agg.avgPPH, agg.recentPPH);
 
     std::map<std::string, Stats> primaryStats, secondaryStats;
 	primaryStats = initializeStats();
     if (hasSecondary)
 	    secondaryStats = initializeStats();
-	computeAllStats(primaryStats, primaryRaids);
+    aggregateStats(primaryStats, primaryRaids);
     if (hasSecondary)
-		computeAllStats(secondaryStats, secondaryRaids, secondaryStart);
+        aggregateStats(secondaryStats, secondaryRaids, secondaryStart);
 
-    std::map<std::string, int> recentVal;
-    if (primaryRaids.size() > 1)
-	    recentVal = computeRecentRaidTimes(primaryRaids);
+    auto recentTimes = computeRecentRaidTimes(primaryRaids);
+
 
     std::vector<std::pair<std::string, const Stats*>> common = computeMostCommonRooms(primaryStats);
     RoomDistribution rd = computeRoomDistribution(primaryRaids);
-    int countPadding = computeCountPad(primaryStats);
 
     std::vector<std::tuple<int, std::string, int, std::string>> primaryDiscarded, secondaryDiscarded;
 	primaryDiscarded = collectAndSortDiscarded(primaryStats);
     if (hasSecondary)
 		secondaryDiscarded = collectAndSortDiscarded(secondaryStats);
 
-    auto roomPPH = computeRoomPPH(primaryRaids);
+    auto roomPPH = computeRoomPPH(primaryRaids); // time-weighted PPH per room
+
+    auto lastNAvg = computeLastNStats(primaryRaids, SESSION_RAIDS);
 
     int totalWidth = computeTotalWidth(hasSecondary); // For table frame
 
 
+
 	
-	// Print results
-    printAnalysisSummary(primaryUser, primaryRaids.size(), hasSecondary, secondaryUser, PAST_RAIDS,
-        secondaryRaids.size() - secondaryStart);
+    // ======================== OUTPUT ===========================
+    // Print tables and summaries
 
-	printRaidStatisticsHeader(primaryUser, secondaryUser, hasSecondary, totalWidth);
+    printAnalysisSummary(primaryUser, static_cast<int>(primaryRaids.size()), hasSecondary, secondaryUser,
+        PAST_RAIDS, static_cast<int>(secondaryRaids.size() - secondaryStart));
 
-	printStatsTable(primaryStats, secondaryStats, recentVal, secondaryUser, countPadding,
-        totalWidth, hasSecondary, pphStats, pointStats);
+	printRaidStatisticsHeader(primaryUser, secondaryUser, hasSecondary, totalWidth, SESSION_RAIDS);
+
+	printStatsTable(primaryStats, secondaryStats, recentTimes, secondaryUser,
+        totalWidth, hasSecondary, pphStats, pointStats, lastNAvg);
 
     printRoomPPHTable(roomPPH);
 
-	printMostCommonPrepRooms(common, rd.five, rd.six, rd.other, primaryRaids.size());
+	printMostCommonPrepRooms(common, rd.five, rd.six, rd.other, static_cast<int>(primaryRaids.size()));
 
 	printDiscardedOutliers(primaryDiscarded, primaryUser, "Primary");
 	if (hasSecondary)

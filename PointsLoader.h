@@ -1,11 +1,10 @@
 #pragma once
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <vector>
-#include <map>
 #include <cmath>
 #include <cctype>
+
+#include "Types.h"
 
 struct PrimaryRaid
 {
@@ -19,14 +18,6 @@ struct PointsRaid
     int raidSeconds;
     int upperSeconds;
     int totalPoints;
-};
-
-struct PointsToPrint
-{
-	int best;
-    int average;
-	int recent;
-	int recentDiff;
 };
 
 int parseTimeMMSS(const std::string& s);

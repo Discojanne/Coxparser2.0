@@ -1,9 +1,5 @@
 #pragma once
 
-#include <string>
-#include <vector>
-#include <map>
-
 #include "Types.h"
 
 struct RoomDistribution {
@@ -22,6 +18,12 @@ struct PointsAggregate
     int avgPoints = 0;
 };
 
+struct RecentCell
+{
+    std::string value;
+    std::string diff;
+    const char* color;
+};
 
 std::string secondsToTime(int seconds);
 
@@ -29,7 +31,7 @@ void processStats(std::map<std::string, Stats>& stats, const std::string& key, c
 
 std::map<std::string, Stats> initializeStats();
 
-void computeAllStats(std::map<std::string, Stats>& stats, const std::vector<Raid>& raids, size_t start = 0);
+void aggregateStats(std::map<std::string, Stats>& stats, const std::vector<Raid>& raids, size_t start = 0);
 
 std::map<std::string, int> computeRecentRaidTimes(const std::vector<Raid>& raids);
 
@@ -45,12 +47,29 @@ std::vector<std::pair<std::string, const Stats*>> computeMostCommonRooms(const s
 
 int computeTotalWidth(bool hasSecondary);
 
-void mapPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap, bool deleteIfNoScore, int numRecent = -1);
+void attachPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap);
 
-std::string formatRecentValue(double recent, double average, bool useSeconds, bool higherIsBetter);
+void filterRaidsWithPoints(std::vector<Raid>& raids);
 
-int visibleLength(const std::string& s);
+void keepMostRecentRaids(std::vector<Raid>& raids, int maxCount);
+
+
+
+
+
 
 PointsAggregate computePointsStats(const std::vector<Raid>& raids);
 
+PointsToPrint makePointsToPrint(int best, int average, int recent);
+
 std::vector<RoomPPHResult>computeRoomPPH(const std::vector<Raid>& raids);
+
+double computeLastNTimeAvg(const std::vector<Raid>& raids, const std::string& key, int N);
+
+double computeLastNPPH(const std::vector<Raid>& raids, int N);
+
+double computeLastNPoints(const std::vector<Raid>& raids, int N);
+
+void finalizeDerivedRaidTimes(std::vector<Raid>& raids);
+
+std::map<std::string, double> computeLastNStats(const std::vector<Raid>& raids, int lastN);
