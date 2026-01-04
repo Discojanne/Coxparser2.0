@@ -74,8 +74,13 @@ void printStatsTable(const std::map<std::string, Stats>& primaryStats, const std
                         int diffAbs = static_cast<int>(std::round(std::abs(diff)));
                         std::string dstr = secondsToTime(diffAbs);
                         std::string sign = (std::abs(diff) < 0.5) ? " " : (diff < 0 ? "-" : "+");
-                        std::string col = (std::abs(diff) < 0.5) ? COLOR_RESET : (diff < 0 ? COLOR_GREEN : COLOR_RED);
-                        compStr = tstr + " " + col + sign + dstr + COLOR_RESET;
+                        const char* col = diffColor(
+                            static_cast<int>(std::round(diff)),
+                            true,          // time comparison
+                            false          // lower time is better
+                        );
+
+                        compStr = tstr + " " + col + sign + dstr + COLOR_RESET + " (" + std::to_string(ss.validCount) + ")";
                     }
                 }
             }
@@ -261,8 +266,7 @@ Cell makeCell(int value, double avg, bool isTime, bool positiveIsGood)
         (isTime ? secondsToTime(std::abs(d))
             : std::to_string(std::abs(d)));
 
-    bool good = positiveIsGood ? (d >= 0) : (d <= 0);
-    c.color = good ? COLOR_GREEN : COLOR_RED;
+    c.color = diffColor(d, isTime, positiveIsGood);
 
     return c;
 }

@@ -9,7 +9,7 @@
 #include "PointsLoader.h"
 
 
-    // ========================== CONFIG =========================
+// ========================== CONFIG =============================
 constexpr int ALL_RAIDS = -1;
 constexpr int PAST_RAIDS = ALL_RAIDS;   // ALL_RAIDS or a number
 constexpr int SESSION_RAIDS = 10;       // Number of raids to consider for "Last N" averages
@@ -19,7 +19,7 @@ const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\K
 const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
 //                                  ^ Raid data tracker points file, to match points to the primary raids
 
-
+// orange text when diff < x%
 
 
 void runCoxAnalytics() {
@@ -35,16 +35,11 @@ void runCoxAnalytics() {
     }
     bool secondaryOk = readRaids(SECONDARY_FILE, secondaryRaids);
     bool hasSecondary = secondaryOk && !secondaryRaids.empty();
+    if (hasSecondary)
+        keepMostRecentRaids(secondaryRaids, PAST_RAIDS);
 
     std::string primaryUser = getUsername(PRIMARY_FILE);
     std::string secondaryUser = getUsername(SECONDARY_FILE);
-
-    size_t secondaryStart = 0;
-    if (hasSecondary && PAST_RAIDS != ALL_RAIDS) {
-        secondaryStart = secondaryRaids.size() > static_cast<size_t>(PAST_RAIDS)
-            ? secondaryRaids.size() - PAST_RAIDS
-            : 0;
-    }
 
     // ======================= POINTS JOIN =======================
 	// Load raid points from Raid Data Tracker and attach to primary raids
@@ -83,7 +78,7 @@ void runCoxAnalytics() {
 	    secondaryStats = initializeStats();
     aggregateStats(primaryStats, primaryRaids);
     if (hasSecondary)
-        aggregateStats(secondaryStats, secondaryRaids, secondaryStart);
+        aggregateStats(secondaryStats, secondaryRaids);
 
     auto recentTimes = computeRecentRaidTimes(primaryRaids);
 
@@ -109,7 +104,7 @@ void runCoxAnalytics() {
     // Print tables and summaries
 
     printAnalysisSummary(primaryUser, static_cast<int>(primaryRaids.size()), hasSecondary, secondaryUser,
-        PAST_RAIDS, static_cast<int>(secondaryRaids.size() - secondaryStart));
+        PAST_RAIDS, static_cast<int>(secondaryRaids.size()));
 
 	printRaidStatisticsHeader(primaryUser, secondaryUser, hasSecondary, totalWidth, SESSION_RAIDS);
 

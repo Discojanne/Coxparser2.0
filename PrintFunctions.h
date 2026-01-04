@@ -22,7 +22,7 @@ const int AW = 6;   // Average value (time or points)
 const int RW = VALUE_W + 1 + DIFF_W;  // Recent column width
 const int LW = VALUE_W + 1 + DIFF_W;  // Last-N column width
 
-const int CW = 13;  // Comparison column (vs secondary user)
+const int CW = 18;  // Comparison column (vs secondary user)
 const int SEP = 5;  // Spaces between columns
 
 
@@ -32,6 +32,26 @@ struct Cell
     std::string diff;    // "+0:12" or "-36322"
     const char* color;   // COLOR_GREEN / COLOR_RED / COLOR_RESET
 };
+
+inline const char* diffColor(
+    int diffSeconds,
+    bool isTime,
+    bool positiveIsGood)
+{
+    // Neutral: very small diffs
+    if (std::abs(diffSeconds) < 1)
+        return COLOR_RESET;
+
+    bool good = positiveIsGood ? (diffSeconds > 0) : (diffSeconds < 0);
+    if (good)
+        return COLOR_GREEN;
+
+    // Time-specific grading
+    if (isTime && std::abs(diffSeconds) < 10)
+        return COLOR_ORANGE;
+
+    return COLOR_RED;
+}
 
 void printRaidStatisticsHeader(const std::string& primaryUser, const std::string& secondaryUser, bool hasSecondary, int totalWidth, int nPastRaids);
 
