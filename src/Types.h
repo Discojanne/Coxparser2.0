@@ -8,6 +8,8 @@
 #define COLOR_RED   "\033[31m"
 #define COLOR_ORANGE "\033[33m"
 #define COLOR_RESET "\033[0m"
+#define COLOR_CYAN "\033[36m"
+
 
 // Represents a single Chambers of Xeric raid run
 // Times are stored per room in seconds

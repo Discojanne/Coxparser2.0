@@ -133,9 +133,13 @@ void printStatsTable(const std::map<std::string, Stats>& primaryStats, const std
             );
         }
         else {
+            const bool hasLastN =
+                lastNAvg.count(key) &&
+                static_cast<int>(lastNAvg.at(key)) > 0;
+
             printValueCell(
-                lastNAvg.count(key),
-                static_cast<int>(lastNAvg.at(key)),
+                hasLastN,
+                hasLastN ? static_cast<int>(lastNAvg.at(key)) : 0,
                 ps.avg,
                 true,
                 false
@@ -227,7 +231,6 @@ void printAnalysisSummary(const std::string& primaryUser, int totalRaids, bool h
 }
 
 
-
 void printRoomPPHTable(const std::vector<RoomPPHResult>& rows)
 {
     constexpr int NW = 18;
@@ -262,14 +265,43 @@ Cell makeCell(int value, double avg, bool isTime, bool positiveIsGood)
 
     int d = value - static_cast<int>(std::round(avg));
 
-    c.diff = (d >= 0 ? "+" : "-") +
-        (isTime ? secondsToTime(std::abs(d))
-            : std::to_string(std::abs(d)));
+    if (std::abs(d) < 1)
+    {
+        // Neutral zero diff: no sign, no color
+        c.diff = isTime ? secondsToTime(0) : "0";
+        c.color = COLOR_RESET;
+    }
+    else
+    {
+        c.diff = (d > 0 ? "+" : "-") +
+            (isTime ? secondsToTime(std::abs(d))
+                : std::to_string(std::abs(d)));
 
-    c.color = diffColor(d, isTime, positiveIsGood);
+        c.color = diffColor(d, isTime, positiveIsGood);
+    }
+
 
     return c;
 }
+
+bool makeSecondaryCell(const Stats& primary, const Stats& secondary, Cell& out)
+{
+    if (secondary.avg <= 0.5)
+        return false;
+
+    int value = static_cast<int>(std::round(secondary.avg));
+    double avg = primary.avg;
+
+    out = makeCell(
+        value,
+        avg,
+        true,   // isTime
+        false   // lower time is better
+    );
+
+    return true;
+}
+
 
 void printCell(const Cell& c)
 {

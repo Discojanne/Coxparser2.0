@@ -34,24 +34,35 @@ struct Cell
 };
 
 inline const char* diffColor(
-    int diffSeconds,
+    int diff,
     bool isTime,
     bool positiveIsGood)
 {
-    // Neutral: very small diffs
-    if (std::abs(diffSeconds) < 1)
+    // Neutral for tiny differences
+    if (std::abs(diff) < 1)
         return COLOR_RESET;
 
-    bool good = positiveIsGood ? (diffSeconds > 0) : (diffSeconds < 0);
-    if (good)
-        return COLOR_GREEN;
-
     // Time-specific grading
-    if (isTime && std::abs(diffSeconds) < 10)
-        return COLOR_ORANGE;
+    if (isTime)
+    {
+        // Faster is better for time
+        if (!positiveIsGood)
+        {
+            if (diff <= -20)
+                return COLOR_CYAN;
+            if (diff < 0)
+                return COLOR_GREEN;   // faster
+            if (diff < 10)
+                return COLOR_ORANGE;  // small slowdown
+            return COLOR_RED;         // big slowdown
+        }
+    }
 
-    return COLOR_RED;
+    // Generic (points etc.)
+    bool good = positiveIsGood ? (diff > 0) : (diff < 0);
+    return good ? COLOR_GREEN : COLOR_RED;
 }
+
 
 void printRaidStatisticsHeader(const std::string& primaryUser, const std::string& secondaryUser, bool hasSecondary, int totalWidth, int nPastRaids);
 
@@ -73,6 +84,8 @@ void printAnalysisSummary(const std::string& primaryUser, int totalRaids, bool h
 void printRoomPPHTable(const std::vector<RoomPPHResult>& rows);
 
 Cell makeCell(int value, double avg, bool isTime, bool positiveIsGood);
+
+bool makeSecondaryCell(const Stats& primary, const Stats& secondary, Cell& out);
 
 void printCell(const Cell& c);
 
