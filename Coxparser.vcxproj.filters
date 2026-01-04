@@ -15,42 +15,42 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Source.cpp">
+    <ClCompile Include="src\ComputeFunctions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CoxParser.cpp">
+    <ClCompile Include="src\CoxParser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="InputFunctions.cpp">
+    <ClCompile Include="src\InputFunctions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ComputeFunctions.cpp">
+    <ClCompile Include="src\PointsLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PrintFunctions.cpp">
+    <ClCompile Include="src\PrintFunctions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="PointsLoader.cpp">
+    <ClCompile Include="src\Source.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Types.h">
+    <ClInclude Include="src\ComputeFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CoxParser.h">
+    <ClInclude Include="src\CoxParser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="InputFunctions.h">
+    <ClInclude Include="src\InputFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ComputeFunctions.h">
+    <ClInclude Include="src\PointsLoader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PrintFunctions.h">
+    <ClInclude Include="src\PrintFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="PointsLoader.h">
+    <ClInclude Include="src\Types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

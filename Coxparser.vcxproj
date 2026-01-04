@@ -18,6 +18,22 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\ComputeFunctions.cpp" />
+    <ClCompile Include="src\CoxParser.cpp" />
+    <ClCompile Include="src\InputFunctions.cpp" />
+    <ClCompile Include="src\PointsLoader.cpp" />
+    <ClCompile Include="src\PrintFunctions.cpp" />
+    <ClCompile Include="src\Source.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\ComputeFunctions.h" />
+    <ClInclude Include="src\CoxParser.h" />
+    <ClInclude Include="src\InputFunctions.h" />
+    <ClInclude Include="src\PointsLoader.h" />
+    <ClInclude Include="src\PrintFunctions.h" />
+    <ClInclude Include="src\Types.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
@@ -103,6 +119,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)src</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -118,28 +135,13 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)src</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="ComputeFunctions.cpp" />
-    <ClCompile Include="CoxParser.cpp" />
-    <ClCompile Include="InputFunctions.cpp" />
-    <ClCompile Include="PointsLoader.cpp" />
-    <ClCompile Include="PrintFunctions.cpp" />
-    <ClCompile Include="Source.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="ComputeFunctions.h" />
-    <ClInclude Include="CoxParser.h" />
-    <ClInclude Include="InputFunctions.h" />
-    <ClInclude Include="PointsLoader.h" />
-    <ClInclude Include="PrintFunctions.h" />
-    <ClInclude Include="Types.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
