@@ -1,6 +1,5 @@
 ﻿#include <iostream>
 #include "CoxParser.h"
-
 int main() {
 
     runCoxAnalytics();

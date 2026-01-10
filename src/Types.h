@@ -10,6 +10,11 @@
 #define COLOR_RESET "\033[0m"
 #define COLOR_CYAN "\033[36m"
 
+enum class LayoutFilter {
+    All,
+    NormalOnly,   // 5–6 prep rooms
+    FullOnly      // all prep rooms
+};
 
 // Represents a single Chambers of Xeric raid run
 // Times are stored per room in seconds

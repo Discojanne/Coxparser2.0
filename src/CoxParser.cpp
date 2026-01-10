@@ -9,6 +9,7 @@
 #include "PointsLoader.h"
 
 
+
 // ========================== CONFIG =============================
 constexpr int ALL_RAIDS = -1;
 constexpr int PAST_RAIDS = ALL_RAIDS;   // ALL_RAIDS or a number
@@ -18,8 +19,9 @@ const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\K
 //                                  ^ Cox analytics export files
 const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
 //                                  ^ Raid data tracker points file, to match points to the primary raids
+constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::All;
 
-// orange text when diff < x%
+
 
 
 void runCoxAnalytics() {
@@ -60,6 +62,9 @@ void runCoxAnalytics() {
     if (hasSecondary)
         finalizeDerivedRaidTimes(secondaryRaids);
 
+	//Mainly separating full layout vs normal layout raids
+    filterByLayout(primaryRaids, LAYOUT_FILTER);
+    filterByLayout(secondaryRaids, LAYOUT_FILTER);
 
 
 
@@ -111,9 +116,11 @@ void runCoxAnalytics() {
 	printStatsTable(primaryStats, secondaryStats, recentTimes, secondaryUser,
         totalWidth, hasSecondary, pphStats, pointStats, lastNAvg);
 
+    if (LAYOUT_FILTER != LayoutFilter::FullOnly)
+    {
     printRoomPPHTable(roomPPH);
-
 	printMostCommonPrepRooms(common, rd.five, rd.six, rd.other, static_cast<int>(primaryRaids.size()));
+    }
 
 	printDiscardedOutliers(primaryDiscarded, primaryUser, "Primary");
 	if (hasSecondary)

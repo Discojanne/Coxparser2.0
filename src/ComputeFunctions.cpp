@@ -5,7 +5,6 @@
 
 #include "ComputeFunctions.h"
 #include "PrintFunctions.h"
-#include "Types.h"
 
 std::string secondsToTime(int seconds)
 {
@@ -429,4 +428,37 @@ std::map<std::string, double> computeLastNStats(const std::vector<Raid>& raids, 
 
     return result;
 }
+
+int countPrepRooms(const Raid& r)
+{
+    int count = 0;
+    for (const auto& room : PREP_ROOMS)
+        if (r.times.count(room))
+            ++count;
+    return count;
+}
+
+void filterByLayout(std::vector<Raid>& raids, LayoutFilter mode)
+{
+    if (mode == LayoutFilter::All)
+        return;
+
+    raids.erase(
+        std::remove_if(raids.begin(), raids.end(),
+            [&](const Raid& r)
+            {
+                int prepCount = countPrepRooms(r);
+
+                if (mode == LayoutFilter::NormalOnly)
+                    return prepCount >= static_cast<int>(PREP_ROOMS.size());
+
+                if (mode == LayoutFilter::FullOnly)
+                    return prepCount < static_cast<int>(PREP_ROOMS.size());
+
+                return false;
+            }),
+        raids.end());
+}
+
+
 

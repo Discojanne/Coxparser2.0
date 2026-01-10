@@ -73,3 +73,7 @@ double computeLastNPoints(const std::vector<Raid>& raids, int N);
 void finalizeDerivedRaidTimes(std::vector<Raid>& raids);
 
 std::map<std::string, double> computeLastNStats(const std::vector<Raid>& raids, int lastN);
+
+int countPrepRooms(const Raid& r);
+
+void filterByLayout(std::vector<Raid>& raids, LayoutFilter mode);
