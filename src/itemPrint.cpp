@@ -75,21 +75,27 @@ void printPurpleItemTable(const std::vector<PurpleItemStat>& stats)
     std::cout << "\n";
 }
 
-void printPurpleHistory(
-    const PurpleHistory& hist,
+void printPurpleHistory(const PurpleHistory& hist,
     double purpleRate,
-    int rowWidth)
+    int rowWidth,
+    int totalRaidsGlobal,
+    int actualPurples)
 {
     if (hist.hasPurple.empty())
         return;
 
-    int totalRaids = static_cast<int>(hist.hasPurple.size());
-    int totalPurples = std::count(hist.hasPurple.begin(), hist.hasPurple.end(), true);
+    const int trackedRaids =
+        static_cast<int>(hist.hasPurple.size());
+
+    const int trackedPurples =
+        static_cast<int>(std::count(hist.hasPurple.begin(),
+            hist.hasPurple.end(),
+            true));
 
     std::cout << std::noshowpos;
     std::cout << "Purple History (oldest to newest, mostly since KC: 457)\n";
-    std::cout << "Raids tracked: " << totalRaids
-        << " | Purples: " << totalPurples << "\n";
+    std::cout << "Raids tracked: " << trackedRaids
+        << " | Purples: " << trackedPurples << "\n";
 
     std::cout << std::string(rowWidth, '-') << "\n";
 
@@ -99,16 +105,16 @@ void printPurpleHistory(
     int dryStreakCount = 0;
     int dryStreakSum = 0;
 
-
     std::string row;
     row.reserve(rowWidth);
 
-    totalRaids = 0;
-    int expectedEvery = static_cast<int>(std::round(purpleRate));
+    int raidIndex = 0;
+    const int expectedEvery =
+        static_cast<int>(std::round(purpleRate));
 
     for (bool gotPurple : hist.hasPurple)
     {
-        totalRaids++;
+        raidIndex++;
         sinceLast++;
 
         char c = '.';
@@ -127,9 +133,9 @@ void printPurpleHistory(
 
             sinceLast = 0;
         }
-        else if (expectedEvery > 0 && totalRaids % expectedEvery == 0)
+        else if (expectedEvery > 0 && raidIndex % expectedEvery == 0)
         {
-            c = '\'';
+            c = '\''; // expected marker
         }
 
         row.push_back(c);
@@ -144,7 +150,7 @@ void printPurpleHistory(
     if (!row.empty())
         std::cout << row << "\n";
 
-    // Handle trailing dry streak (if no purple at end)
+    // trailing dry streak
     if (sinceLast > 0)
     {
         longestDry = std::max(longestDry, sinceLast);
@@ -160,7 +166,37 @@ void printPurpleHistory(
     std::cout << "Longest dry streak: " << longestDry << " raids\n";
     std::cout << "Average dry streak: "
         << std::fixed << std::setprecision(1)
-        << avgDry << " raids\n\n";
+        << avgDry << " raids\n";
+
+    // ================= UNTRACKED DATA =================
+
+    const int untrackedRaids =
+        totalRaidsGlobal - trackedRaids;
+
+    const int untrackedPurples =
+        actualPurples - trackedPurples;
+
+    if (untrackedRaids > 0)
+    {
+        std::cout << "Untracked raids:  "
+            << untrackedRaids
+            << " | Purples: "
+            << untrackedPurples;
+
+        if (untrackedPurples > 0)
+        {
+            double untrackedRate =
+                static_cast<double>(untrackedRaids) / untrackedPurples;
+
+            std::cout << " | Avg rate: 1/"
+                << std::fixed << std::setprecision(2)
+                << untrackedRate;
+        }
+
+        std::cout << "\n";
+    }
+
+    std::cout << "\n";
 }
 
 void printSectionDivider(const std::string& title, int width)

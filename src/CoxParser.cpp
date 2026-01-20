@@ -21,8 +21,8 @@ const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\K
 //                                  ^ Cox analytics export files
 const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
 //                                  ^ Raid data tracker points file, to match points to the primary raids
-constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::FullOnly;
-bool PRINT_PURPLE_SUMMARY = false;
+constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::All;
+bool PRINT_PURPLE_SUMMARY = true;
 
 // Purple summary constants, from manual count
 constexpr int TOTAL_RAIDS = 1866;
@@ -174,7 +174,9 @@ void runCoxAnalytics() {
         printPurpleHistory(
             purpleHistory,
             PURPLE_RATE,
-            100 // wide rows, compact
+            100,
+            TOTAL_RAIDS,
+            ACTUAL_PURPLES
         );
     }
 }
