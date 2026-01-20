@@ -22,6 +22,7 @@ const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\K
 const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
 //                                  ^ Raid data tracker points file, to match points to the primary raids
 constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::FullOnly;
+bool PRINT_PURPLE_SUMMARY = false;
 
 // Purple summary constants, from manual count
 constexpr int TOTAL_RAIDS = 1866;
@@ -165,13 +166,15 @@ void runCoxAnalytics() {
 	    printDiscardedOutliers(secondaryDiscarded, secondaryUser, "Secondary");
 
 	// Print purple summary
-    printSectionDivider("LOOT & PURPLE ANALYSIS", totalWidth);
-    printPurpleSummary(purpleSummary);
-    printPurpleItemTable(itemStats);
-    printPurpleHistory(
-        purpleHistory,
-        PURPLE_RATE,
-        100 // wide rows, compact
-    );
-
+    if (PRINT_PURPLE_SUMMARY)
+    {
+        printSectionDivider("LOOT & PURPLE ANALYSIS", totalWidth);
+        printPurpleSummary(purpleSummary);
+        printPurpleItemTable(itemStats);
+        printPurpleHistory(
+            purpleHistory,
+            PURPLE_RATE,
+            100 // wide rows, compact
+        );
+    }
 }
