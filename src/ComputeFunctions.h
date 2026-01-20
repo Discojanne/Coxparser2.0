@@ -35,7 +35,6 @@ void aggregateStats(std::map<std::string, Stats>& stats, const std::vector<Raid>
 
 std::map<std::string, int> computeRecentRaidTimes(const std::vector<Raid>& raids);
 
-
 RoomDistribution computeRoomDistribution(const std::vector<Raid>& raids);
 
 int computeCountPad(const std::map<std::string, Stats>& stats);
@@ -52,10 +51,6 @@ void attachPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& poi
 void filterRaidsWithPoints(std::vector<Raid>& raids);
 
 void keepMostRecentRaids(std::vector<Raid>& raids, int maxCount);
-
-
-
-
 
 
 PointsAggregate computePointsStats(const std::vector<Raid>& raids);

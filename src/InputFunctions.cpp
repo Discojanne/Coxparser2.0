@@ -102,3 +102,55 @@ bool readRaids(const std::string& filename, std::vector<Raid>& raids) {
 
     return !raids.empty();
 }
+
+PurpleHistory loadPurpleHistory(
+    const std::string& logFile,
+    const std::string& primaryUser)
+{
+    PurpleHistory hist;
+
+    std::ifstream file(logFile);
+    if (!file.is_open())
+        return hist;
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (line.empty())
+            continue;
+
+        bool hasLoot = false;
+        bool isMine = false;
+
+        // Fast string checks
+        auto lootPos = line.find("\"specialLoot\":\"");
+        if (lootPos != std::string::npos)
+        {
+            size_t start = lootPos + 15;
+            size_t end = line.find('"', start);
+            if (end != std::string::npos)
+                hasLoot = (end > start); // non-empty string
+        }
+
+        if (hasLoot)
+        {
+            constexpr const char* RECEIVER_KEY = "\"specialLootReceiver\":\"";
+
+            auto recvPos = line.find(RECEIVER_KEY);
+            if (recvPos != std::string::npos)
+            {
+                size_t start = recvPos + std::strlen(RECEIVER_KEY);
+                size_t end = line.find('"', start);
+                if (end != std::string::npos)
+                {
+                    std::string receiver = line.substr(start, end - start);
+                    isMine = (receiver == primaryUser);
+                }
+            }
+        }
+        hist.hasPurple.push_back(hasLoot && isMine);
+    }
+
+    return hist;
+}
+

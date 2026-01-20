@@ -74,7 +74,7 @@ const std::map<std::string, unsigned int> ROOM_REFERENCE_FOR_OUTLIERS = {
 const std::map<std::string, unsigned int> ROOM_MAX_REFERENCE = {
     {"Tekton",              240},
     {"Crabs",               240},
-    {"Ice demon",           240},
+    {"Ice demon",           210},
     {"Shamans",             240},
     {"Vanguards",           240},
     {"Thieving",            240},

@@ -7,6 +7,8 @@
 #include "InputFunctions.h"
 #include "ComputeFunctions.h"
 #include "PointsLoader.h"
+#include "itemCompute.h"
+#include "itemPrint.h"
 
 
 
@@ -19,12 +21,38 @@ const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\K
 //                                  ^ Cox analytics export files
 const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
 //                                  ^ Raid data tracker points file, to match points to the primary raids
-constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::All;
+constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::FullOnly;
 
+// Purple summary constants, from manual count
+constexpr int TOTAL_RAIDS = 1866;
+constexpr double PURPLE_RATE = 26.7548; // 1 in X raids on average
+constexpr int ACTUAL_PURPLES = 53;
+// Manually tracked purple counts (update as you get drops)
+const std::map<std::string, int> ACTUAL_ITEM_COUNTS = {
+    {"Dexterous prayer scroll", 19},
+    {"Arcane prayer scroll",    16},
 
+    {"Twisted buckler",         2},
+    {"Dragon hunter crossbow",  1},
+
+    {"Dinh's bulwark",          1},
+    {"Ancestral hat",           4},
+    {"Ancestral robe top",      0},
+    {"Ancestral robe bottom",   4},
+    {"Dragon claws",            2},
+
+    {"Elder maul",              4},
+    {"Kodai insignia",          0},
+    {"Twisted bow",             0}
+};
 
 
 void runCoxAnalytics() {
+	// Validate purple counts before proceeding
+    validatePurpleCounts(
+        ACTUAL_PURPLES,
+		ACTUAL_ITEM_COUNTS);
+
     // ========================== INPUT ==========================
 	// Read primary / secondary raid logs from Cox Analytics
 
@@ -102,6 +130,16 @@ void runCoxAnalytics() {
 
     int totalWidth = computeTotalWidth(hasSecondary); // For table frame
 
+	// ===================== PURPLE SUMMARY ========================
+    auto purpleSummary = computePurpleSummary(
+        TOTAL_RAIDS,
+        PURPLE_RATE,
+        ACTUAL_PURPLES);
+    auto itemStats = computePurpleItemStats(
+        ACTUAL_PURPLES,
+		purpleSummary.expectedPurples,
+        ACTUAL_ITEM_COUNTS);
+    auto purpleHistory = loadPurpleHistory(POINTS_FILE, primaryUser);
 
 
 	
@@ -125,4 +163,15 @@ void runCoxAnalytics() {
 	printDiscardedOutliers(primaryDiscarded, primaryUser, "Primary");
 	if (hasSecondary)
 	    printDiscardedOutliers(secondaryDiscarded, secondaryUser, "Secondary");
+
+	// Print purple summary
+    printSectionDivider("LOOT & PURPLE ANALYSIS", totalWidth);
+    printPurpleSummary(purpleSummary);
+    printPurpleItemTable(itemStats);
+    printPurpleHistory(
+        purpleHistory,
+        PURPLE_RATE,
+        100 // wide rows, compact
+    );
+
 }
