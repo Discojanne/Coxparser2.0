@@ -153,7 +153,9 @@ void printStatsTable(const std::map<std::string, Stats>& primaryStats, const std
         if (key == "Pre-Olm" || key == "Raid Completed" || key == "Between room time")
             std::cout << std::string(totalWidth, '-') << "\n";
     }
-    std::cout << std::string(totalWidth, '=') << "\n\n";
+    std::cout << std::string(totalWidth, '=') << "\n";
+	double avgPurp = (Points.average > 0) ? (867600.0 / Points.average) : 0.0;
+    std::cout << "Purple on every " << std::fixed << std::setprecision(2) << avgPurp << " kills, based on average points.\n\n";
 }
 
 void printMostCommonPrepRooms(const std::vector<std::pair<std::string, const Stats*>>& common, int raids5, int raids6, int raidsOther, int totalRaids)

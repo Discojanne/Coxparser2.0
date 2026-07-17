@@ -84,7 +84,7 @@ const std::map<std::string, unsigned int> ROOM_MAX_REFERENCE = {
     {"Vasa",                240},
     {"Mystics",             240},
     {"Muttadiles",          240},
-    {"Between room time",   600}
+    {"Between room time",   240}
 };
 
 const std::vector<std::string> DISPLAY_ORDER = {

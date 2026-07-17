@@ -10,7 +10,10 @@
 #include "itemCompute.h"
 #include "itemPrint.h"
 
-
+// Todo
+// Add current dry streak
+// Make purple result more accurate by considering different layouts/points
+// Add support for CMs
 
 // ========================== CONFIG =============================
 constexpr int ALL_RAIDS = -1;
@@ -25,12 +28,12 @@ constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::All;
 bool PRINT_PURPLE_SUMMARY = true;
 
 // Purple summary constants, from manual count
-constexpr int TOTAL_RAIDS = 1866;
+constexpr int TOTAL_RAIDS = 1901;
 constexpr double PURPLE_RATE = 26.7548; // 1 in X raids on average
-constexpr int ACTUAL_PURPLES = 53;
+constexpr int ACTUAL_PURPLES = 54;
 // Manually tracked purple counts (update as you get drops)
 const std::map<std::string, int> ACTUAL_ITEM_COUNTS = {
-    {"Dexterous prayer scroll", 19},
+    {"Dexterous prayer scroll", 20},
     {"Arcane prayer scroll",    16},
 
     {"Twisted buckler",         2},
