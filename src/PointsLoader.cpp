@@ -1,5 +1,9 @@
 ﻿#include "PointsLoader.h"
 
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+
 int parseTimeMMSS(const std::string& s)
 {
     int m = 0, sec = 0;
@@ -32,6 +36,34 @@ bool extractBool(const std::string& line, const std::string& key, bool& out)
     p = line.find(':', p);
     out = line.substr(p + 1, 5).find("true") != std::string::npos;
     return true;
+}
+
+bool isLeagueProfile(const std::string& line)
+{
+    constexpr const char* KEY = "\"profileType\":\"";
+    auto p = line.find(KEY);
+    if (p == std::string::npos)
+        return false;
+
+    p += std::strlen(KEY);
+    auto end = line.find('"', p);
+    if (end == std::string::npos)
+        return false;
+
+    for (size_t i = p; i + 5 < end; ++i)
+    {
+        // Case-insensitive "LEAGUE"
+        if ((line[i] == 'L' || line[i] == 'l') &&
+            (line[i + 1] == 'E' || line[i + 1] == 'e') &&
+            (line[i + 2] == 'A' || line[i + 2] == 'a') &&
+            (line[i + 3] == 'G' || line[i + 3] == 'g') &&
+            (line[i + 4] == 'U' || line[i + 4] == 'u') &&
+            (line[i + 5] == 'E' || line[i + 5] == 'e'))
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 std::vector<PrimaryRaid> loadPrimary(const std::string& path)
@@ -87,6 +119,9 @@ std::vector<PointsRaid> loadPointsFile(const std::string& path)
 
     while (std::getline(file, line))
     {
+        if (isLeagueProfile(line))
+            continue;
+
         bool challenge = true;
         int teamSize = -1;
         int raidTime = -1;
@@ -150,4 +185,132 @@ std::map<int, int> loadPoints(
     }
 
     return result;
+}
+
+int readMaxCoxKC(const std::string& coxTimesPath)
+{
+    std::ifstream file(coxTimesPath);
+    if (!file.is_open())
+        return 0;
+
+    int maxKc = 0;
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (line.rfind("CoX KC:", 0) != 0)
+            continue;
+        int kc = parseIntWithCommas(line.substr(7));
+        if (kc > maxKc)
+            maxKc = kc;
+    }
+    return maxKc;
+}
+
+int readMaxCmKC(const std::string& cmTimesPath)
+{
+    std::ifstream file(cmTimesPath);
+    if (!file.is_open())
+        return 0;
+
+    int maxKc = 0;
+    std::string line;
+    while (std::getline(file, line))
+    {
+        // Cox Analytics labels CM as "CoX CM KC: N"
+        if (line.rfind("CoX CM KC:", 0) != 0)
+            continue;
+        int kc = parseIntWithCommas(line.substr(10));
+        if (kc > maxKc)
+            maxKc = kc;
+    }
+    return maxKc;
+}
+
+PointsLogStats summarizePointsLog(const std::string& pointsPath)
+{
+    PointsLogStats stats;
+    std::ifstream file(pointsPath);
+    if (!file.is_open())
+        return stats;
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (line.empty())
+            continue;
+
+        if (isLeagueProfile(line))
+            continue;
+
+        int personalPoints = 0;
+        if (!extractInt(line, "\"personalPoints\"", personalPoints) || personalPoints <= 0)
+            continue;
+
+        bool challenge = false;
+        extractBool(line, "\"challengeMode\"", challenge);
+
+        int teamSize = 0;
+        extractInt(line, "\"teamSize\"", teamSize);
+        if (teamSize < 1)
+            continue;
+
+        stats.sumPersonalAll += personalPoints;
+
+        if (challenge)
+        {
+            ++stats.nCM;
+            stats.sumPersonalCM += personalPoints;
+        }
+        else if (teamSize == 1)
+        {
+            ++stats.nSoloRegular;
+            stats.sumPersonalSoloRegular += personalPoints;
+        }
+        else
+        {
+            ++stats.nTeamRegular;
+            stats.sumPersonalTeamRegular += personalPoints;
+        }
+    }
+
+    return stats;
+}
+
+AccountBreakdown buildAccountBreakdown(
+    int regularKC,
+    int cmKC,
+    int nTracked,
+    double avgTrackedSoloPoints,
+    const PointsLogStats& pointsStats)
+{
+    AccountBreakdown b;
+    b.regularKC = regularKC;
+    b.nTracked = nTracked;
+    b.nSoloLogged = pointsStats.nSoloRegular;
+    b.nTeam = pointsStats.nTeamRegular;
+    b.nCM = cmKC;
+    b.nCMLogged = pointsStats.nCM;
+    b.nCMMissing = std::max(0, cmKC - pointsStats.nCM);
+    b.sumPersonalKnown = pointsStats.sumPersonalAll;
+
+    const int attributedRegular = pointsStats.nSoloRegular + pointsStats.nTeamRegular;
+    b.nUntracked = std::max(0, regularKC - attributedRegular);
+
+    // Estimate missing CM points from average of logged CM runs (few gaps; fine).
+    b.sumPersonalCMEst = pointsStats.sumPersonalCM;
+    if (b.nCMMissing > 0 && pointsStats.nCM > 0)
+    {
+        const double avgCmPts =
+            static_cast<double>(pointsStats.sumPersonalCM) / pointsStats.nCM;
+        b.sumPersonalCMEst += static_cast<long long>(
+            std::llround(avgCmPts * b.nCMMissing));
+    }
+
+    // Include estimated CM pts in the "known" total used for expectation later.
+    b.sumPersonalKnown += (b.sumPersonalCMEst - pointsStats.sumPersonalCM);
+
+    if (avgTrackedSoloPoints > 0.0 && b.sumPersonalCMEst > 0)
+        b.cmEquiv = static_cast<double>(b.sumPersonalCMEst) / avgTrackedSoloPoints;
+
+    return b;
 }

@@ -3,8 +3,10 @@
 #include <fstream>
 #include <filesystem>
 #include <cctype>
+#include <cstring>
 
 #include "InputFunctions.h"
+#include "PointsLoader.h"
 
 
 std::string getUsername(const std::string& path) {
@@ -113,42 +115,66 @@ PurpleHistory loadPurpleHistory(
     if (!file.is_open())
         return hist;
 
-    std::string line;
-    while (std::getline(file, line))
+    auto gotPurpleForUser = [&](const std::string& line) -> bool
     {
-        if (line.empty())
-            continue;
-
         bool hasLoot = false;
-        bool isMine = false;
-
-        // Fast string checks
         auto lootPos = line.find("\"specialLoot\":\"");
         if (lootPos != std::string::npos)
         {
             size_t start = lootPos + 15;
             size_t end = line.find('"', start);
             if (end != std::string::npos)
-                hasLoot = (end > start); // non-empty string
+                hasLoot = (end > start);
         }
+        if (!hasLoot)
+            return false;
 
-        if (hasLoot)
+        constexpr const char* RECEIVER_KEY = "\"specialLootReceiver\":\"";
+        auto recvPos = line.find(RECEIVER_KEY);
+        if (recvPos == std::string::npos)
+            return true; // loot present, no receiver field
+
+        size_t start = recvPos + std::strlen(RECEIVER_KEY);
+        size_t end = line.find('"', start);
+        if (end == std::string::npos)
+            return false;
+
+        std::string receiver = line.substr(start, end - start);
+        return receiver.empty() || receiver == primaryUser;
+    };
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (line.empty())
+            continue;
+
+        if (isLeagueProfile(line))
+            continue;
+
+        int personalPoints = 0;
+        if (!extractInt(line, "\"personalPoints\"", personalPoints) || personalPoints <= 0)
+            continue;
+
+        int teamSize = 0;
+        extractInt(line, "\"teamSize\"", teamSize);
+        if (teamSize < 1)
+            continue;
+
+        bool challenge = false;
+        extractBool(line, "\"challengeMode\"", challenge);
+
+        const bool mine = gotPurpleForUser(line);
+
+        if (challenge)
         {
-            constexpr const char* RECEIVER_KEY = "\"specialLootReceiver\":\"";
-
-            auto recvPos = line.find(RECEIVER_KEY);
-            if (recvPos != std::string::npos)
-            {
-                size_t start = recvPos + std::strlen(RECEIVER_KEY);
-                size_t end = line.find('"', start);
-                if (end != std::string::npos)
-                {
-                    std::string receiver = line.substr(start, end - start);
-                    isMine = (receiver == primaryUser);
-                }
-            }
+            ++hist.cmRaids;
+            if (mine)
+                ++hist.cmPurples;
         }
-        hist.hasPurple.push_back(hasLoot && isMine);
+
+        // Chronological map: solo + team + CM as they appear in the log
+        hist.hasPurple.push_back(mine);
     }
 
     return hist;

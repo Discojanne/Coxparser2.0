@@ -3,12 +3,18 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <algorithm>
+#include <tuple>
 
 #define COLOR_GREEN "\033[32m"
 #define COLOR_RED   "\033[31m"
 #define COLOR_ORANGE "\033[33m"
-#define COLOR_RESET "\033[0m"
 #define COLOR_CYAN "\033[36m"
+#define COLOR_MAGENTA "\033[35m"
+#define COLOR_BRIGHT_MAGENTA "\033[95m"
+#define COLOR_BOLD "\033[1m"
+#define COLOR_DIM "\033[2m"
+#define COLOR_RESET "\033[0m"
 
 enum class LayoutFilter {
     All,

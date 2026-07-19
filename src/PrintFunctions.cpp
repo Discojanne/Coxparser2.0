@@ -210,7 +210,7 @@ void printMostCommonPrepRooms(const std::vector<std::pair<std::string, const Sta
 void printDiscardedOutliers(const std::vector<std::tuple<int, std::string, int, std::string>>& discarded, const std::string& user, const std::string& label)
 {
     if (!discarded.empty()) {
-        std::cout << "Discarded Outliers (Primary - " << user << ") - " << discarded.size() << " items:\n";
+        std::cout << "Discarded Outliers (" << label << " - " << user << ") - " << discarded.size() << " items:\n";
         std::cout << std::string(80, '-') << "\n";
         for (const auto& [kc, room, time, reason] : discarded) {
             std::cout << "KC " << std::setw(5) << kc << " | "

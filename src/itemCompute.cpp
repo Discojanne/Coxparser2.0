@@ -1,16 +1,52 @@
 #include "itemCompute.h"
 #include <iostream>
 
-PurpleSummary computePurpleSummary(int totalRaids, double purpleRate, int actualPurples)
+namespace {
+constexpr double POINTS_PER_PURPLE = 867600.0;
+}
+
+PurpleSummary computePurpleSummary(
+    double effectiveKC,
+    long long personalPointsKnownEst,
+    int raidsWithPointsEst,
+    int nUntracked,
+    int untrackedAvgPoints,
+    int actualPurples,
+    const std::map<std::string, int>& actualItemCounts)
 {
     PurpleSummary s{};
-    s.totalRaids = totalRaids;
-    s.purpleRate = purpleRate;
+    s.effectiveKC = effectiveKC;
     s.actualPurples = actualPurples;
 
-    s.expectedPurples = totalRaids / purpleRate;
-    s.diff = actualPurples - s.expectedPurples;
+    const long long untrackedPoints =
+        static_cast<long long>(nUntracked) * untrackedAvgPoints;
+    const long long totalPointsEst = personalPointsKnownEst + untrackedPoints;
+    const int totalRaidsForAvg = raidsWithPointsEst + nUntracked;
 
+    s.avgPersonalPoints = (totalRaidsForAvg > 0)
+        ? static_cast<double>(totalPointsEst) / totalRaidsForAvg
+        : 0.0;
+
+    s.expectedPurples =
+        static_cast<double>(personalPointsKnownEst) / POINTS_PER_PURPLE
+        + static_cast<double>(untrackedPoints) / POINTS_PER_PURPLE;
+
+    // One combined rate over all effective KC (how often we should see a purple).
+    s.purpleRate = (s.expectedPurples > 0.0)
+        ? (effectiveKC / s.expectedPurples)
+        : 0.0;
+
+    s.prayerScrolls = 0;
+    for (const auto& [name, count] : actualItemCounts)
+    {
+        if (isPrayerScroll(name))
+            s.prayerScrolls += count;
+    }
+    s.prayerScrollPct = (actualPurples > 0)
+        ? (100.0 * s.prayerScrolls / actualPurples)
+        : 0.0;
+
+    s.diff = actualPurples - s.expectedPurples;
     return s;
 }
 
@@ -42,24 +78,10 @@ std::vector<PurpleItemStat> computePurpleItemStats(
     return out;
 }
 
-void validatePurpleCounts(
-    int expectedTotalPurples,
-    const std::map<std::string, int>& itemCounts)
+int sumActualPurples(const std::map<std::string, int>& itemCounts)
 {
     int sum = 0;
     for (const auto& [item, count] : itemCounts)
         sum += count;
-
-    if (sum != expectedTotalPurples)
-    {
-        std::cerr << "\n[ERROR] Purple count mismatch!\n";
-        std::cerr << "  ACTUAL_PURPLES = " << expectedTotalPurples << "\n";
-        std::cerr << "  Sum of ACTUAL_ITEM_COUNTS = " << sum << "\n";
-        std::cerr << "  Difference = " << (sum - expectedTotalPurples) << "\n\n";
-
-        std::cerr << "Fix ACTUAL_PURPLES or ACTUAL_ITEM_COUNTS before continuing.\n";
-        std::exit(EXIT_FAILURE);
-    }
+    return sum;
 }
-
-

@@ -10,31 +10,24 @@
 #include "itemCompute.h"
 #include "itemPrint.h"
 
-// Todo
-// Add current dry streak
-// Make purple result more accurate by considering different layouts/points
-// Add support for CMs
-
 // ========================== CONFIG =============================
 constexpr int ALL_RAIDS = -1;
 constexpr int PAST_RAIDS = ALL_RAIDS;   // ALL_RAIDS or a number
-constexpr int SESSION_RAIDS = 10;       // Number of raids to consider for "Last N" averages
+constexpr int SESSION_RAIDS = 10;       // "Last N" averages
+
 const std::string PRIMARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Disco Turtle_CoxTimes.txt";
 const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\KGod_CoxTimes.txt";
-//                                  ^ Cox analytics export files
+const std::string CM_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Disco Turtle_CmTimes.txt";
 const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
-//                                  ^ Raid data tracker points file, to match points to the primary raids
-constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::All;
+
+constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::FullOnly;
 bool PRINT_PURPLE_SUMMARY = true;
 
-// Purple summary constants, from manual count
-constexpr int TOTAL_RAIDS = 1901;
-constexpr double PURPLE_RATE = 26.7548; // 1 in X raids on average
-constexpr int ACTUAL_PURPLES = 54;
-// Manually tracked purple counts (update as you get drops)
+// Manual constants (log gaps — update item counts when you get drops / revise untracked estimate)
+constexpr int UNTRACKED_AVG_POINTS = 30000; // assumed personal pts per untracked regular raid
 const std::map<std::string, int> ACTUAL_ITEM_COUNTS = {
     {"Dexterous prayer scroll", 20},
-    {"Arcane prayer scroll",    16},
+    {"Arcane prayer scroll",    17},
 
     {"Twisted buckler",         2},
     {"Dragon hunter crossbow",  1},
@@ -45,28 +38,25 @@ const std::map<std::string, int> ACTUAL_ITEM_COUNTS = {
     {"Ancestral robe bottom",   4},
     {"Dragon claws",            2},
 
-    {"Elder maul",              4},
+    {"Elder maul",              5},
     {"Kodai insignia",          0},
     {"Twisted bow",             0}
 };
 
 
-void runCoxAnalytics() {
-	// Validate purple counts before proceeding
-    validatePurpleCounts(
-        ACTUAL_PURPLES,
-		ACTUAL_ITEM_COUNTS);
+void runCoxAnalytics()
+{
+    const int actualPurples = sumActualPurples(ACTUAL_ITEM_COUNTS);
 
     // ========================== INPUT ==========================
-	// Read primary / secondary raid logs from Cox Analytics
-
-	// A raid contains kc, times per room, total time, total points
     std::vector<Raid> primaryRaids, secondaryRaids;
 
-    if (!readRaids(PRIMARY_FILE, primaryRaids)) {
+    if (!readRaids(PRIMARY_FILE, primaryRaids))
+    {
         std::cerr << "Failed to read primary file\n";
         return;
     }
+
     bool secondaryOk = readRaids(SECONDARY_FILE, secondaryRaids);
     bool hasSecondary = secondaryOk && !secondaryRaids.empty();
     if (hasSecondary)
@@ -75,10 +65,11 @@ void runCoxAnalytics() {
     std::string primaryUser = getUsername(PRIMARY_FILE);
     std::string secondaryUser = getUsername(SECONDARY_FILE);
 
-    // ======================= POINTS JOIN =======================
-	// Load raid points from Raid Data Tracker and attach to primary raids
-    // IMPORTANT: order matters (attach -> filter -> trim)
+    const int regularKC = readMaxCoxKC(PRIMARY_FILE);
+    const int cmKC = readMaxCmKC(CM_FILE);
 
+    // ======================= POINTS JOIN =======================
+    // Order: attach -> filter -> trim
     auto pointsMap = loadPoints(PRIMARY_FILE, POINTS_FILE);
     attachPointsToRaids(primaryRaids, pointsMap);
     filterRaidsWithPoints(primaryRaids);
@@ -90,96 +81,129 @@ void runCoxAnalytics() {
         return;
     }
 
-	finalizeDerivedRaidTimes(primaryRaids);
+    finalizeDerivedRaidTimes(primaryRaids);
     if (hasSecondary)
         finalizeDerivedRaidTimes(secondaryRaids);
 
-	//Mainly separating full layout vs normal layout raids
+    // ====================== ACCOUNT COUNTS =====================
+    // Loot / purple math uses the full joined set (layout must not affect this).
+    const int nTracked = static_cast<int>(primaryRaids.size());
+    auto pointsStats = summarizePointsLog(POINTS_FILE);
+
+    double avgTrackedPoints = 0.0;
+    {
+        long long sum = 0;
+        int n = 0;
+        for (const auto& r : primaryRaids)
+        {
+            if (r.totalPoints > 0)
+            {
+                sum += r.totalPoints;
+                ++n;
+            }
+        }
+        if (n > 0)
+            avgTrackedPoints = static_cast<double>(sum) / n;
+    }
+
+    const AccountBreakdown breakdown = buildAccountBreakdown(
+        regularKC, cmKC, nTracked, avgTrackedPoints, pointsStats);
+
+    // Layout filter: time / PPH / outlier tables only
     filterByLayout(primaryRaids, LAYOUT_FILTER);
     filterByLayout(secondaryRaids, LAYOUT_FILTER);
 
-
+    if (primaryRaids.empty())
+    {
+        std::cout << "No raids left after layout filter.\n";
+        return;
+    }
 
     // ====================== AGGREGATION ========================
-    // Compute per-room, per-raid, and points-based statistics
-
     auto agg = computePointsStats(primaryRaids);
 
-    PointsToPrint pointStats = makePointsToPrint(agg.bestPoints, agg.avgPoints,
-        primaryRaids.back().totalPoints);
-    PointsToPrint pphStats = makePointsToPrint(agg.bestPPH, agg.avgPPH, agg.recentPPH);
+    PointsToPrint pointStats = makePointsToPrint(
+        agg.bestPoints, agg.avgPoints, primaryRaids.back().totalPoints);
+    PointsToPrint pphStats = makePointsToPrint(
+        agg.bestPPH, agg.avgPPH, agg.recentPPH);
 
-    std::map<std::string, Stats> primaryStats, secondaryStats;
-	primaryStats = initializeStats();
+    std::map<std::string, Stats> primaryStats = initializeStats();
+    std::map<std::string, Stats> secondaryStats;
     if (hasSecondary)
-	    secondaryStats = initializeStats();
+        secondaryStats = initializeStats();
+
     aggregateStats(primaryStats, primaryRaids);
     if (hasSecondary)
         aggregateStats(secondaryStats, secondaryRaids);
 
     auto recentTimes = computeRecentRaidTimes(primaryRaids);
-
-
-    std::vector<std::pair<std::string, const Stats*>> common = computeMostCommonRooms(primaryStats);
+    auto common = computeMostCommonRooms(primaryStats);
     RoomDistribution rd = computeRoomDistribution(primaryRaids);
 
-    std::vector<std::tuple<int, std::string, int, std::string>> primaryDiscarded, secondaryDiscarded;
-	primaryDiscarded = collectAndSortDiscarded(primaryStats);
+    auto primaryDiscarded = collectAndSortDiscarded(primaryStats);
+    std::vector<std::tuple<int, std::string, int, std::string>> secondaryDiscarded;
     if (hasSecondary)
-		secondaryDiscarded = collectAndSortDiscarded(secondaryStats);
+        secondaryDiscarded = collectAndSortDiscarded(secondaryStats);
 
-    auto roomPPH = computeRoomPPH(primaryRaids); // time-weighted PPH per room
-
+    auto roomPPH = computeRoomPPH(primaryRaids);
     auto lastNAvg = computeLastNStats(primaryRaids, SESSION_RAIDS);
+    int totalWidth = computeTotalWidth(hasSecondary);
 
-    int totalWidth = computeTotalWidth(hasSecondary); // For table frame
+    // ===================== PURPLE SUMMARY ========================
+    const double effectiveKC = breakdown.regularKC + breakdown.cmEquiv;
+    const int raidsWithPointsEst =
+        breakdown.nSoloLogged + breakdown.nTeam + breakdown.nCM;
 
-	// ===================== PURPLE SUMMARY ========================
     auto purpleSummary = computePurpleSummary(
-        TOTAL_RAIDS,
-        PURPLE_RATE,
-        ACTUAL_PURPLES);
+        effectiveKC,
+        breakdown.sumPersonalKnown,
+        raidsWithPointsEst,
+        breakdown.nUntracked,
+        UNTRACKED_AVG_POINTS,
+        actualPurples,
+        ACTUAL_ITEM_COUNTS);
     auto itemStats = computePurpleItemStats(
-        ACTUAL_PURPLES,
-		purpleSummary.expectedPurples,
+        actualPurples,
+        purpleSummary.expectedPurples,
         ACTUAL_ITEM_COUNTS);
     auto purpleHistory = loadPurpleHistory(POINTS_FILE, primaryUser);
 
-
-	
     // ======================== OUTPUT ===========================
-    // Print tables and summaries
-
-    printAnalysisSummary(primaryUser, static_cast<int>(primaryRaids.size()), hasSecondary, secondaryUser,
+    printAnalysisSummary(
+        primaryUser, static_cast<int>(primaryRaids.size()),
+        hasSecondary, secondaryUser,
         PAST_RAIDS, static_cast<int>(secondaryRaids.size()));
 
-	printRaidStatisticsHeader(primaryUser, secondaryUser, hasSecondary, totalWidth, SESSION_RAIDS);
+    printRaidStatisticsHeader(
+        primaryUser, secondaryUser, hasSecondary, totalWidth, SESSION_RAIDS);
 
-	printStatsTable(primaryStats, secondaryStats, recentTimes, secondaryUser,
+    printStatsTable(
+        primaryStats, secondaryStats, recentTimes, secondaryUser,
         totalWidth, hasSecondary, pphStats, pointStats, lastNAvg);
 
     if (LAYOUT_FILTER != LayoutFilter::FullOnly)
     {
-    printRoomPPHTable(roomPPH);
-	printMostCommonPrepRooms(common, rd.five, rd.six, rd.other, static_cast<int>(primaryRaids.size()));
+        printRoomPPHTable(roomPPH);
+        printMostCommonPrepRooms(
+            common, rd.five, rd.six, rd.other,
+            static_cast<int>(primaryRaids.size()));
     }
 
-	printDiscardedOutliers(primaryDiscarded, primaryUser, "Primary");
-	if (hasSecondary)
-	    printDiscardedOutliers(secondaryDiscarded, secondaryUser, "Secondary");
+    printDiscardedOutliers(primaryDiscarded, primaryUser, "Primary");
+    if (hasSecondary)
+        printDiscardedOutliers(secondaryDiscarded, secondaryUser, "Secondary");
 
-	// Print purple summary
     if (PRINT_PURPLE_SUMMARY)
     {
         printSectionDivider("LOOT & PURPLE ANALYSIS", totalWidth);
+        printAccountBreakdown(breakdown);
         printPurpleSummary(purpleSummary);
         printPurpleItemTable(itemStats);
         printPurpleHistory(
             purpleHistory,
-            PURPLE_RATE,
+            purpleSummary.purpleRate,
             100,
-            TOTAL_RAIDS,
-            ACTUAL_PURPLES
-        );
+            breakdown.regularKC,
+            actualPurples);
     }
 }

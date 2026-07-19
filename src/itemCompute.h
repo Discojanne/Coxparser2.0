@@ -5,12 +5,15 @@
 
 struct PurpleSummary
 {
-    int totalRaids;
-    double purpleRate;     // e.g. 26.7548
+    double effectiveKC;          // regular KC + CM equiv
+    double avgPersonalPoints;    // all raids: known/est pts + untracked @ assumed pts
+    double purpleRate;           // combined 1-in-X: effectiveKC / expected
     int actualPurples;
+    int prayerScrolls;           // dex + arcane
+    double prayerScrollPct;      // prayerScrolls / actualPurples * 100
 
     double expectedPurples;
-    double diff;           // actual - expected
+    double diff;                 // actual - expected
 };
 
 struct PurpleItemDef {
@@ -54,13 +57,19 @@ inline bool isPrayerScroll(const std::string& item)
         || item == "Arcane prayer scroll";
 }
 
-PurpleSummary computePurpleSummary(int totalRaids, double purpleRate, int actualPurples);
+PurpleSummary computePurpleSummary(
+    double effectiveKC,
+    long long personalPointsKnownEst,
+    int raidsWithPointsEst,
+    int nUntracked,
+    int untrackedAvgPoints,
+    int actualPurples,
+    const std::map<std::string, int>& actualItemCounts);
 
 std::vector<PurpleItemStat> computePurpleItemStats(
     int actualPurples,
     double estimatedPurples,
     const std::map<std::string, int>& actualItemCounts);
 
-void validatePurpleCounts(
-    int expectedTotalPurples,
-    const std::map<std::string, int>& itemCounts);
+// Sum of ACTUAL_ITEM_COUNTS — single source of truth for total purples.
+int sumActualPurples(const std::map<std::string, int>& itemCounts);
