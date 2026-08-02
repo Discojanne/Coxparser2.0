@@ -227,9 +227,8 @@ void printAccountBreakdown(const AccountBreakdown& b)
     };
 
     row("Regular KC", std::to_string(b.regularKC));
-    row("  Tracked", std::to_string(b.nTracked));
-    row("  Solo (logged)", std::to_string(b.nSoloLogged));
-    row("  Team (logged)", std::to_string(b.nTeam));
+    row("  Solo", std::to_string(b.nSoloLogged));
+    row("  Team", std::to_string(b.nTeam));
     row("  Untracked", std::to_string(b.nUntracked));
     row("CM", std::to_string(b.nCM));
     row("  CM (logged pts)", std::to_string(b.nCMLogged));
@@ -249,8 +248,8 @@ void printAccountBreakdown(const AccountBreakdown& b)
 
     if (b.nTracked > b.nSoloLogged)
     {
-        std::cout << "\n[warn] Tracked (" << b.nTracked
-            << ") > solo logged (" << b.nSoloLogged
+        std::cout << "\n[warn] Joined solos (" << b.nTracked
+            << ") > Solo (" << b.nSoloLogged
             << ") — join/filter mismatch?\n";
     }
 
