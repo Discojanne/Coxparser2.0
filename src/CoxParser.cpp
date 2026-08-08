@@ -24,7 +24,7 @@ constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::FullOnly;
 bool PRINT_PURPLE_SUMMARY = true;
 
 // Manual constants (log gaps — update item counts when you get drops / revise untracked estimate)
-constexpr int UNTRACKED_AVG_POINTS = 30000; // assumed personal pts per untracked regular raid
+constexpr int UNTRACKED_AVG_POINTS = 28000; // assumed personal pts per untracked regular raid
 const std::map<std::string, int> ACTUAL_ITEM_COUNTS = {
     {"Dexterous prayer scroll", 20},
     {"Arcane prayer scroll",    17},
@@ -34,7 +34,7 @@ const std::map<std::string, int> ACTUAL_ITEM_COUNTS = {
 
     {"Dinh's bulwark",          1},
     {"Ancestral hat",           4},
-    {"Ancestral robe top",      0},
+    {"Ancestral robe top",      1},
     {"Ancestral robe bottom",   4},
     {"Dragon claws",            2},
 

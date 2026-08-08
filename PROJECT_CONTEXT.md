@@ -2,6 +2,8 @@
 
 Feed this file to an agent to get up to speed quickly before taking on tasks.
 
+**Path:** `C:\Users\DB96\source\repos\Coxparser\PROJECT_CONTEXT.md`
+
 ## What it is
 
 A **C++ Visual Studio console app** (`C:\Users\DB96\source\repos\Coxparser`) that analyzes the user's **Chambers of Xeric (CoX)** history.
@@ -57,9 +59,10 @@ ASCII table printing is brittle and change-sensitive.
 ```
 regular_KC     = max CoX KC from CoxTimes
 nTracked       = solos with times + points joined (full set, pre-layout)
-nSoloLogged    = non-CM teamSize==1 in points log (non-League)
+                 // used internally for CM equiv avg points; NOT printed
+nSolo          = non-CM teamSize==1 in points log (non-League)
 nTeam          = non-CM teamSize>1 in points log (non-League)
-nUntracked     = regular_KC - nSoloLogged - nTeam
+nUntracked     = regular_KC - nSolo - nTeam
 nCM            = max CoX CM KC from CmTimes
 nCMLogged      = CM rows in points log (non-League)
 nCMMissing     = nCM - nCMLogged  (pts estimated from avg logged CM)
@@ -67,7 +70,13 @@ cm_equiv       = sum(CM pts incl. estimate) / avg(tracked solo pts)
 effective_KC   = regular_KC + cm_equiv
 ```
 
+**Account Breakdown print** under Regular KC shows only: **Solo**, **Team**, **Untracked** (not Tracked).
+
 Do **not** add team on top of regular KC (already included).
+
+### Team raids in the points log
+
+Regular (non-CM, non-League) team rows with `personalPoints > 0` are fully counted already — typically **~17** in the log. Expanding the parser cannot invent more; missing team raids without a log row sit in **Untracked**. CM team rows are counted under **CM**, not under Regular → Team.
 
 ### Untracked KC (approximate, from completionCount holes)
 
@@ -144,4 +153,4 @@ Also prints **prayer scroll %** (dex + arcane) / actual.
 
 ## One-liner for a new agent
 
-**Coxparser joins Disco Turtle solo CoxTimes to raid-tracker points for time/PPH; excludes League; loot actuals = sum of item counts; expected = (known pts + untracked×assumed pts)/867600 over effective KC (regular + CM equiv); history map is chronological solo+team+CM; layout filter does not affect loot math; KGod is times-only.**
+**Coxparser joins Disco Turtle solo CoxTimes to raid-tracker points for time/PPH; excludes League; loot actuals = sum of item counts; expected = (known pts + untracked×assumed pts)/867600 over effective KC (regular + CM equiv); history map is chronological solo+team+CM; layout filter does not affect loot math; Account Breakdown prints Solo/Team/Untracked under Regular KC; KGod is times-only.**
