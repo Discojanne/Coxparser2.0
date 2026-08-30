@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <iomanip>
 #include <cmath>
+#include <algorithm>
 
 #include "PrintFunctions.h"
 #include "CoxParser.h"
@@ -22,6 +23,12 @@ const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\
 
 constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::FullOnly;
 bool PRINT_PURPLE_SUMMARY = true;
+bool PURPLE_VIEW_POST_ONLY = true; // true = loot section uses only post-split data
+
+// Unique-table weight change cutoffs (set to your KC on update day).
+// Values above current KC keep everything in the pre-change table.
+constexpr int RATE_CHANGE_KC = 1832;
+constexpr int RATE_CHANGE_CM_KC = 138;
 
 // Manual constants (log gaps — update item counts when you get drops / revise untracked estimate)
 constexpr int UNTRACKED_AVG_POINTS = 28000; // assumed personal pts per untracked regular raid
@@ -29,11 +36,11 @@ const std::map<std::string, int> ACTUAL_ITEM_COUNTS = {
     {"Dexterous prayer scroll", 20},
     {"Arcane prayer scroll",    17},
 
-    {"Twisted buckler",         2},
-    {"Dragon hunter crossbow",  1},
+    {"Twisted buckler",         3},
+    {"Dragon hunter crossbow",  3},
 
     {"Dinh's bulwark",          1},
-    {"Ancestral hat",           4},
+    {"Ancestral hat",           5},
     {"Ancestral robe top",      1},
     {"Ancestral robe bottom",   4},
     {"Dragon claws",            2},
@@ -150,23 +157,86 @@ void runCoxAnalytics()
     int totalWidth = computeTotalWidth(hasSecondary);
 
     // ===================== PURPLE SUMMARY ========================
-    const double effectiveKC = breakdown.regularKC + breakdown.cmEquiv;
-    const int raidsWithPointsEst =
-        breakdown.nSoloLogged + breakdown.nTeam + breakdown.nCM;
+    const auto era = loadPurpleEraAnalysis(
+        POINTS_FILE,
+        primaryUser,
+        RATE_CHANGE_KC,
+        RATE_CHANGE_CM_KC,
+        regularKC,
+        cmKC);
 
-    auto purpleSummary = computePurpleSummary(
-        effectiveKC,
-        breakdown.sumPersonalKnown,
-        raidsWithPointsEst,
-        breakdown.nUntracked,
-        UNTRACKED_AVG_POINTS,
-        actualPurples,
-        ACTUAL_ITEM_COUNTS);
-    auto itemStats = computePurpleItemStats(
-        actualPurples,
-        purpleSummary.expectedPurples,
-        ACTUAL_ITEM_COUNTS);
-    auto purpleHistory = loadPurpleHistory(POINTS_FILE, primaryUser);
+    const int lifetimePurples = actualPurples;
+    const int postPurples =
+        era.purplesPostRegular + era.purplesPostCm;
+    const int prePurples = std::max(0, lifetimePurples - postPurples);
+
+    const long long untrackedPoints =
+        static_cast<long long>(breakdown.nUntracked) * UNTRACKED_AVG_POINTS;
+    const long long totalPointsEst =
+        breakdown.sumPersonalKnown + untrackedPoints;
+    const long long postPoints =
+        era.pointsPostRegular + era.pointsPostCm;
+    const long long prePoints = std::max(0LL, totalPointsEst - postPoints);
+
+    PurpleSummary purpleSummary{};
+    PurpleItemExpectationInput itemIn{};
+    const PurpleHistory* purpleHistory = &era.historyAll;
+    int historyActualPurples = lifetimePurples;
+
+    if (PURPLE_VIEW_POST_ONLY)
+    {
+        const int postRegularKc = std::max(0, regularKC - RATE_CHANGE_KC);
+        double postCmEquiv = 0.0;
+        if (avgTrackedPoints > 0.0 && era.pointsPostCm > 0)
+            postCmEquiv = static_cast<double>(era.pointsPostCm) / avgTrackedPoints;
+        const double postEffectiveKc = postRegularKc + postCmEquiv;
+        const int postRaidsEst = era.nPostRegular + era.nPostCm;
+
+        purpleSummary = computePurpleSummary(
+            postEffectiveKc,
+            postPoints,
+            postRaidsEst,
+            /*nUntracked*/ 0,
+            /*untrackedAvgPoints*/ 0,
+            postPurples,
+            era.itemsPost);
+
+        itemIn.actualPurplesPre = 0;
+        itemIn.actualPurplesPostRegular = era.purplesPostRegular;
+        itemIn.actualPurplesPostCm = era.purplesPostCm;
+        itemIn.pointsPre = 0;
+        itemIn.pointsPostRegular = era.pointsPostRegular;
+        itemIn.pointsPostCm = era.pointsPostCm;
+        itemIn.got = era.itemsPost;
+
+        purpleHistory = &era.historyPost;
+        historyActualPurples = postPurples;
+    }
+    else
+    {
+        const double effectiveKC = breakdown.regularKC + breakdown.cmEquiv;
+        const int raidsWithPointsEst =
+            breakdown.nSoloLogged + breakdown.nTeam + breakdown.nCM;
+
+        purpleSummary = computePurpleSummary(
+            effectiveKC,
+            breakdown.sumPersonalKnown,
+            raidsWithPointsEst,
+            breakdown.nUntracked,
+            UNTRACKED_AVG_POINTS,
+            lifetimePurples,
+            ACTUAL_ITEM_COUNTS);
+
+        itemIn.actualPurplesPre = prePurples;
+        itemIn.actualPurplesPostRegular = era.purplesPostRegular;
+        itemIn.actualPurplesPostCm = era.purplesPostCm;
+        itemIn.pointsPre = prePoints;
+        itemIn.pointsPostRegular = era.pointsPostRegular;
+        itemIn.pointsPostCm = era.pointsPostCm;
+        itemIn.got = ACTUAL_ITEM_COUNTS;
+    }
+
+    auto itemStats = computePurpleItemStats(itemIn);
 
     // ======================== OUTPUT ===========================
     printAnalysisSummary(
@@ -195,15 +265,19 @@ void runCoxAnalytics()
 
     if (PRINT_PURPLE_SUMMARY)
     {
-        printSectionDivider("LOOT & PURPLE ANALYSIS", totalWidth);
-        printAccountBreakdown(breakdown);
+        const char* lootTitle = PURPLE_VIEW_POST_ONLY
+            ? "LOOT & PURPLE ANALYSIS (post-split)"
+            : "LOOT & PURPLE ANALYSIS";
+        printSectionDivider(lootTitle, totalWidth);
+        if (!PURPLE_VIEW_POST_ONLY)
+            printAccountBreakdown(breakdown);
         printPurpleSummary(purpleSummary);
         printPurpleItemTable(itemStats);
         printPurpleHistory(
-            purpleHistory,
+            *purpleHistory,
             purpleSummary.purpleRate,
             100,
             breakdown.regularKC,
-            actualPurples);
+            historyActualPurples);
     }
 }

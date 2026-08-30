@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 int parseTimeMMSS(const std::string& s)
 {
@@ -38,6 +39,21 @@ bool extractBool(const std::string& line, const std::string& key, bool& out)
     return true;
 }
 
+bool extractString(const std::string& line, const std::string& key, std::string& out)
+{
+    auto p = line.find(key);
+    if (p == std::string::npos)
+        return false;
+
+    p += key.size();
+    auto end = line.find('"', p);
+    if (end == std::string::npos)
+        return false;
+
+    out = line.substr(p, end - p);
+    return true;
+}
+
 bool isLeagueProfile(const std::string& line)
 {
     constexpr const char* KEY = "\"profileType\":\"";
@@ -64,6 +80,19 @@ bool isLeagueProfile(const std::string& line)
         }
     }
     return false;
+}
+
+bool gotPurpleForUser(const std::string& line, const std::string& primaryUser)
+{
+    std::string loot;
+    if (!extractString(line, "\"specialLoot\":\"", loot) || loot.empty())
+        return false;
+
+    std::string receiver;
+    if (!extractString(line, "\"specialLootReceiver\":\"", receiver))
+        return true; // loot present, no receiver field
+
+    return receiver.empty() || receiver == primaryUser;
 }
 
 std::vector<PrimaryRaid> loadPrimary(const std::string& path)
@@ -138,11 +167,30 @@ std::vector<PointsRaid> loadPointsFile(const std::string& path)
         extractInt(line, "\"upperTime\"", upperTime);
         extractInt(line, "\"totalPoints\"", totalPoints);
 
-        if (raidTime > 0 && upperTime > 0 && totalPoints > 0)
+        // Do NOT require upperTime > 0. Raid-data tracker sometimes writes
+        // "upperTime": -1 for valid solos; dropping those rows left the
+        // newest CoxTimes raids unmatched and desynced the whole join chain
+        // (analysis collapsed to ~1 raid). Keep them; match on raidTime only.
+        if (raidTime > 0 && totalPoints > 0)
             raids.push_back({ raidTime, upperTime, totalPoints });
     }
 
     return raids;
+}
+
+namespace {
+// Prefer raidTime + Floor1/upperTime (±tol). If upperTime is missing/invalid
+// (plugin bug), accept raidTime alone so those rows still join.
+bool pointsTimesMatch(const PrimaryRaid& p, const PointsRaid& q, int tol)
+{
+    if (std::abs(p.raidSeconds - q.raidSeconds) > tol)
+        return false;
+
+    if (q.upperSeconds <= 0)
+        return true;
+
+    return std::abs(p.floor1Seconds - q.upperSeconds) <= tol;
+}
 }
 
 std::map<int, int> loadPoints(
@@ -158,30 +206,39 @@ std::map<int, int> loadPoints(
     int j = (int)points.size() - 1;
 
     constexpr int TOL = 3;
+    // Limited scan: points log has extras vs CoxTimes. Looking ahead skips
+    // those without advancing primary. If still no match, skip primary —
+    // never only burn points while stuck on one CoxTimes tip raid (that used
+    // to false-match an old row and desync everything after a bad upperTime).
+    constexpr int LOOKAHEAD = 30;
 
     while (i >= 0 && j >= 0)
     {
         const auto& p = primary[i];
-        const auto& q = points[j];
 
-        bool raidMatch = std::abs(p.raidSeconds - q.raidSeconds) <= TOL;
-        bool floorMatch = std::abs(p.floor1Seconds - q.upperSeconds) <= TOL;
-
-        if (raidMatch && floorMatch)
+        if (pointsTimesMatch(p, points[j], TOL))
         {
-            result[p.kc] = q.totalPoints;
-            /*std::cout << "Matched KC " << p.kc
-                << " | raid " << p.raidSeconds
-                << " | floor1 " << p.floor1Seconds
-                << " | points " << q.totalPoints << "\n";*/
+            result[p.kc] = points[j].totalPoints;
             --i;
             --j;
+            continue;
         }
-        else
+
+        int found = -1;
+        const int lim = std::max(0, j - LOOKAHEAD);
+        for (int k = j - 1; k >= lim; --k)
         {
-            // points file has extra CM runs → skip it
-            --j;
+            if (pointsTimesMatch(p, points[k], TOL))
+            {
+                found = k;
+                break;
+            }
         }
+
+        if (found >= 0)
+            j = found; // skip intervening points extras, then match next iter
+        else
+            --i;       // this CoxTimes raid has no nearby points row
     }
 
     return result;
@@ -313,4 +370,126 @@ AccountBreakdown buildAccountBreakdown(
         b.cmEquiv = static_cast<double>(b.sumPersonalCMEst) / avgTrackedSoloPoints;
 
     return b;
+}
+
+PurpleEraAnalysis loadPurpleEraAnalysis(
+    const std::string& pointsPath,
+    const std::string& primaryUser,
+    int rateChangeKc,
+    int rateChangeCmKc,
+    int regularKc,
+    int cmKc)
+{
+    PurpleEraAnalysis out;
+
+    std::ifstream file(pointsPath);
+    if (!file.is_open())
+        return out;
+
+    struct Row
+    {
+        bool challenge = false;
+        int personalPoints = 0;
+        bool minePurple = false;
+        std::string loot; // only set when minePurple
+    };
+
+    std::vector<Row> rows;
+    std::vector<size_t> regularIdx;
+    std::vector<size_t> cmIdx;
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (line.empty() || isLeagueProfile(line))
+            continue;
+
+        int personalPoints = 0;
+        if (!extractInt(line, "\"personalPoints\"", personalPoints) || personalPoints <= 0)
+            continue;
+
+        int teamSize = 0;
+        extractInt(line, "\"teamSize\"", teamSize);
+        if (teamSize < 1)
+            continue;
+
+        bool challenge = false;
+        extractBool(line, "\"challengeMode\"", challenge);
+
+        Row row;
+        row.challenge = challenge;
+        row.personalPoints = personalPoints;
+        row.minePurple = gotPurpleForUser(line, primaryUser);
+        if (row.minePurple)
+            extractString(line, "\"specialLoot\":\"", row.loot);
+
+        const size_t idx = rows.size();
+        rows.push_back(std::move(row));
+        if (challenge)
+            cmIdx.push_back(idx);
+        else
+            regularIdx.push_back(idx);
+    }
+
+    int nPostReg = std::max(0, regularKc - rateChangeKc);
+    int nPostCm = std::max(0, cmKc - rateChangeCmKc);
+    nPostReg = std::min(nPostReg, static_cast<int>(regularIdx.size()));
+    nPostCm = std::min(nPostCm, static_cast<int>(cmIdx.size()));
+
+    std::vector<char> isPost(rows.size(), 0);
+    for (int i = 0; i < nPostReg; ++i)
+        isPost[regularIdx[regularIdx.size() - 1 - i]] = 1;
+    for (int i = 0; i < nPostCm; ++i)
+        isPost[cmIdx[cmIdx.size() - 1 - i]] = 1;
+
+    auto addItem = [](std::map<std::string, int>& m, const std::string& name)
+    {
+        if (!name.empty())
+            ++m[name];
+    };
+
+    for (size_t i = 0; i < rows.size(); ++i)
+    {
+        const Row& r = rows[i];
+        const bool post = isPost[i] != 0;
+
+        if (r.challenge)
+        {
+            ++out.historyAll.cmRaids;
+            if (r.minePurple)
+                ++out.historyAll.cmPurples;
+        }
+        out.historyAll.hasPurple.push_back(r.minePurple);
+
+        if (!post)
+            continue;
+
+        if (r.challenge)
+        {
+            ++out.nPostCm;
+            out.pointsPostCm += r.personalPoints;
+            ++out.historyPost.cmRaids;
+            if (r.minePurple)
+            {
+                ++out.purplesPostCm;
+                ++out.historyPost.cmPurples;
+                addItem(out.itemsPostCm, r.loot);
+                addItem(out.itemsPost, r.loot);
+            }
+        }
+        else
+        {
+            ++out.nPostRegular;
+            out.pointsPostRegular += r.personalPoints;
+            if (r.minePurple)
+            {
+                ++out.purplesPostRegular;
+                addItem(out.itemsPostRegular, r.loot);
+                addItem(out.itemsPost, r.loot);
+            }
+        }
+        out.historyPost.hasPurple.push_back(r.minePurple);
+    }
+
+    return out;
 }

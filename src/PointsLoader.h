@@ -3,8 +3,11 @@
 #include <fstream>
 #include <cmath>
 #include <cctype>
+#include <map>
+#include <string>
 
 #include "Types.h"
+#include "InputFunctions.h"
 
 struct PrimaryRaid
 {
@@ -16,6 +19,8 @@ struct PrimaryRaid
 struct PointsRaid
 {
     int raidSeconds;
+    // Floor-1 seconds from the tracker. May be -1 when the plugin fails to
+    // write upperTime (seen on some full-layout solos); join must tolerate that.
     int upperSeconds;
     int totalPoints;
 };
@@ -48,6 +53,24 @@ struct AccountBreakdown
     long long sumPersonalCMEst = 0;      // logged CM pts + estimate for missing
 };
 
+// Post-cutoff slice of the points log (unique-table weight change).
+// Post rows = last max(0, currentKC - cutoff) regular/CM completions in log order
+// (robust when completionCount is -1).
+struct PurpleEraAnalysis
+{
+    long long pointsPostRegular = 0;
+    long long pointsPostCm = 0;
+    int nPostRegular = 0;
+    int nPostCm = 0;
+    int purplesPostRegular = 0;
+    int purplesPostCm = 0;
+    std::map<std::string, int> itemsPostRegular;
+    std::map<std::string, int> itemsPostCm;
+    std::map<std::string, int> itemsPost; // reg + CM combined
+    PurpleHistory historyAll;
+    PurpleHistory historyPost;
+};
+
 int parseTimeMMSS(const std::string& s);
 
 int parseIntWithCommas(const std::string& s);
@@ -56,8 +79,13 @@ bool extractInt(const std::string& line, const std::string& key, int& out);
 
 bool extractBool(const std::string& line, const std::string& key, bool& out);
 
+bool extractString(const std::string& line, const std::string& key, std::string& out);
+
 // True if profileType contains "LEAGUE" (e.g. DEMONIC_PACTS_LEAGUE). Always skip these.
 bool isLeagueProfile(const std::string& line);
+
+// True if this row's specialLoot is attributed to primaryUser (or no receiver field).
+bool gotPurpleForUser(const std::string& line, const std::string& primaryUser);
 
 std::vector<PrimaryRaid> loadPrimary(const std::string& path);
 
@@ -79,3 +107,11 @@ AccountBreakdown buildAccountBreakdown(
     int nTracked,
     double avgTrackedSoloPoints,
     const PointsLogStats& pointsStats);
+
+PurpleEraAnalysis loadPurpleEraAnalysis(
+    const std::string& pointsPath,
+    const std::string& primaryUser,
+    int rateChangeKc,
+    int rateChangeCmKc,
+    int regularKc,
+    int cmKc);

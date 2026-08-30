@@ -1,8 +1,27 @@
 #include "itemCompute.h"
-#include <iostream>
+#include <cmath>
 
 namespace {
-constexpr double POINTS_PER_PURPLE = 867600.0;
+int weightFor(const PurpleWeightTable& table, const std::string& name)
+{
+    for (const auto& item : table.items)
+    {
+        if (item.name == name)
+            return item.weight;
+    }
+    return 0;
+}
+
+double expectedFromBucket(
+    double purples,
+    const PurpleWeightTable& table,
+    const std::string& name)
+{
+    const int w = weightFor(table, name);
+    if (w <= 0 || purples <= 0.0)
+        return 0.0;
+    return purples / itemRate(table, w);
+}
 }
 
 PurpleSummary computePurpleSummary(
@@ -47,26 +66,40 @@ PurpleSummary computePurpleSummary(
         : 0.0;
 
     s.diff = actualPurples - s.expectedPurples;
+    s.diffRaids = (s.expectedPurples > 0.0)
+        ? static_cast<int>(std::round(s.diff * s.purpleRate))
+        : 0;
     return s;
 }
 
 std::vector<PurpleItemStat> computePurpleItemStats(
-    int actualPurples,
-    double estimatedPurples,
-    const std::map<std::string, int>& actualItemCounts)
+    const PurpleItemExpectationInput& in)
 {
     std::vector<PurpleItemStat> out;
 
-    for (const auto& def : PURPLE_ITEMS) {
-        int got = actualItemCounts.count(def.name)
-            ? actualItemCounts.at(def.name)
-            : 0;
+    const double expPurplesPre =
+        static_cast<double>(in.pointsPre) / POINTS_PER_PURPLE;
+    const double expPurplesPostReg =
+        static_cast<double>(in.pointsPostRegular) / POINTS_PER_PURPLE;
+    const double expPurplesPostCm =
+        static_cast<double>(in.pointsPostCm) / POINTS_PER_PURPLE;
 
-        double expectedActual = actualPurples / def.rate;
-        double expectedOnRate = estimatedPurples / def.rate;
+    for (const auto& name : PURPLE_ITEM_NAMES)
+    {
+        const int got = in.got.count(name) ? in.got.at(name) : 0;
+
+        const double expectedActual =
+            expectedFromBucket(in.actualPurplesPre, WEIGHTS_PRE, name)
+            + expectedFromBucket(in.actualPurplesPostRegular, WEIGHTS_POST_REGULAR, name)
+            + expectedFromBucket(in.actualPurplesPostCm, WEIGHTS_POST_CM, name);
+
+        const double expectedOnRate =
+            expectedFromBucket(expPurplesPre, WEIGHTS_PRE, name)
+            + expectedFromBucket(expPurplesPostReg, WEIGHTS_POST_REGULAR, name)
+            + expectedFromBucket(expPurplesPostCm, WEIGHTS_POST_CM, name);
 
         out.push_back({
-            def.name,
+            name,
             got,
             expectedActual,
             got - expectedActual,

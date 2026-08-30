@@ -41,11 +41,13 @@ void printPurpleSummary(const PurpleSummary& s)
 
     const char* col = (s.diff >= 0) ? COLOR_GREEN : COLOR_RED;
 
+    std::ostringstream diffStr;
+    diffStr << std::showpos << std::fixed << std::setprecision(1) << s.diff
+        << " (" << s.diffRaids << " raids)";
+
     std::cout << std::left << std::setw(22) << "Difference"
         << col
-        << std::right << std::setw(10)
-        << std::showpos << std::fixed << std::setprecision(1)
-        << s.diff
+        << std::right << std::setw(14) << diffStr.str()
         << COLOR_RESET << "\n";
 
     std::cout << std::noshowpos << "\n";

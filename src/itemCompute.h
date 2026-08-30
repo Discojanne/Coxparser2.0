@@ -13,27 +13,91 @@ struct PurpleSummary
     double prayerScrollPct;      // prayerScrolls / actualPurples * 100
 
     double expectedPurples;
-    double diff;                 // actual - expected
+    double diff;                 // actual - expected (purples)
+    int diffRaids;               // round(diff * purpleRate) — raids worth of that gap
 };
 
-struct PurpleItemDef {
+struct PurpleItemWeight {
     std::string name;
-    double rate;   // e.g. 3.45 means 1 / 3.45
+    int weight;
 };
 
-const std::vector<PurpleItemDef> PURPLE_ITEMS = {
-    {"Dexterous prayer scroll", 3.45},
-    {"Arcane prayer scroll", 3.45},
-    {"Twisted buckler", 17.25},
-    {"Dragon hunter crossbow", 17.25},
-    {"Dinh's bulwark", 23.0},
-    {"Ancestral hat", 23.0},
-    {"Ancestral robe top", 23.0},
-    {"Ancestral robe bottom", 23.0},
-    {"Dragon claws", 23.0},
-    {"Elder maul", 34.5},
-    {"Kodai insignia", 34.5},
-    {"Twisted bow", 34.5}
+struct PurpleWeightTable {
+    int totalWeight;
+    std::vector<PurpleItemWeight> items;
+};
+
+// Unique table before the weight update (regular + CM shared).
+const PurpleWeightTable WEIGHTS_PRE = {
+    69,
+    {
+        {"Dexterous prayer scroll", 20},
+        {"Arcane prayer scroll", 20},
+        {"Twisted buckler", 4},
+        {"Dragon hunter crossbow", 4},
+        {"Dinh's bulwark", 3},
+        {"Ancestral hat", 3},
+        {"Ancestral robe top", 3},
+        {"Ancestral robe bottom", 3},
+        {"Dragon claws", 3},
+        {"Elder maul", 2},
+        {"Kodai insignia", 2},
+        {"Twisted bow", 2},
+    }
+};
+
+// Unique table after the weight update — regular CoX.
+const PurpleWeightTable WEIGHTS_POST_REGULAR = {
+    60,
+    {
+        {"Dexterous prayer scroll", 14},
+        {"Arcane prayer scroll", 14},
+        {"Twisted buckler", 4},
+        {"Dragon hunter crossbow", 4},
+        {"Dinh's bulwark", 3},
+        {"Ancestral hat", 4},
+        {"Ancestral robe top", 4},
+        {"Ancestral robe bottom", 4},
+        {"Dragon claws", 3},
+        {"Elder maul", 2},
+        {"Kodai insignia", 2},
+        {"Twisted bow", 2},
+    }
+};
+
+// Unique table after the weight update — Challenge Mode.
+const PurpleWeightTable WEIGHTS_POST_CM = {
+    56,
+    {
+        {"Dexterous prayer scroll", 12},
+        {"Arcane prayer scroll", 12},
+        {"Twisted buckler", 4},
+        {"Dragon hunter crossbow", 4},
+        {"Dinh's bulwark", 3},
+        {"Ancestral hat", 4},
+        {"Ancestral robe top", 4},
+        {"Ancestral robe bottom", 4},
+        {"Dragon claws", 3},
+        {"Elder maul", 2},
+        {"Kodai insignia", 2},
+        {"Twisted bow", 2},
+    }
+};
+
+// Display order for the purple items table (same as WEIGHTS_PRE order).
+const std::vector<std::string> PURPLE_ITEM_NAMES = {
+    "Dexterous prayer scroll",
+    "Arcane prayer scroll",
+    "Twisted buckler",
+    "Dragon hunter crossbow",
+    "Dinh's bulwark",
+    "Ancestral hat",
+    "Ancestral robe top",
+    "Ancestral robe bottom",
+    "Dragon claws",
+    "Elder maul",
+    "Kodai insignia",
+    "Twisted bow",
 };
 
 struct PurpleItemStat {
@@ -41,20 +105,33 @@ struct PurpleItemStat {
 
     int got;
 
-    double expectedActual;   // based on ACTUAL_PURPLES
+    double expectedActual;   // blended from actual purples per era/mode
     double diffActual;       // got - expectedActual
 
-    double expectedOnRate;   // based on ESTIMATED_PURPLES
+    double expectedOnRate;   // blended from estimated purples per era/mode
     double diffOnRate;       // got - expectedOnRate
 };
 
-
-
+// Inputs for era-aware item expectations.
+struct PurpleItemExpectationInput {
+    int actualPurplesPre = 0;
+    int actualPurplesPostRegular = 0;
+    int actualPurplesPostCm = 0;
+    long long pointsPre = 0;
+    long long pointsPostRegular = 0;
+    long long pointsPostCm = 0;
+    std::map<std::string, int> got;
+};
 
 inline bool isPrayerScroll(const std::string& item)
 {
     return item == "Dexterous prayer scroll"
         || item == "Arcane prayer scroll";
+}
+
+inline double itemRate(const PurpleWeightTable& table, int weight)
+{
+    return static_cast<double>(table.totalWeight) / static_cast<double>(weight);
 }
 
 PurpleSummary computePurpleSummary(
@@ -67,9 +144,9 @@ PurpleSummary computePurpleSummary(
     const std::map<std::string, int>& actualItemCounts);
 
 std::vector<PurpleItemStat> computePurpleItemStats(
-    int actualPurples,
-    double estimatedPurples,
-    const std::map<std::string, int>& actualItemCounts);
+    const PurpleItemExpectationInput& in);
 
 // Sum of ACTUAL_ITEM_COUNTS — single source of truth for total purples.
 int sumActualPurples(const std::map<std::string, int>& itemCounts);
+
+constexpr double POINTS_PER_PURPLE = 867600.0;

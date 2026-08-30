@@ -115,34 +115,6 @@ PurpleHistory loadPurpleHistory(
     if (!file.is_open())
         return hist;
 
-    auto gotPurpleForUser = [&](const std::string& line) -> bool
-    {
-        bool hasLoot = false;
-        auto lootPos = line.find("\"specialLoot\":\"");
-        if (lootPos != std::string::npos)
-        {
-            size_t start = lootPos + 15;
-            size_t end = line.find('"', start);
-            if (end != std::string::npos)
-                hasLoot = (end > start);
-        }
-        if (!hasLoot)
-            return false;
-
-        constexpr const char* RECEIVER_KEY = "\"specialLootReceiver\":\"";
-        auto recvPos = line.find(RECEIVER_KEY);
-        if (recvPos == std::string::npos)
-            return true; // loot present, no receiver field
-
-        size_t start = recvPos + std::strlen(RECEIVER_KEY);
-        size_t end = line.find('"', start);
-        if (end == std::string::npos)
-            return false;
-
-        std::string receiver = line.substr(start, end - start);
-        return receiver.empty() || receiver == primaryUser;
-    };
-
     std::string line;
     while (std::getline(file, line))
     {
@@ -164,7 +136,7 @@ PurpleHistory loadPurpleHistory(
         bool challenge = false;
         extractBool(line, "\"challengeMode\"", challenge);
 
-        const bool mine = gotPurpleForUser(line);
+        const bool mine = gotPurpleForUser(line, primaryUser);
 
         if (challenge)
         {
@@ -173,10 +145,8 @@ PurpleHistory loadPurpleHistory(
                 ++hist.cmPurples;
         }
 
-        // Chronological map: solo + team + CM as they appear in the log
         hist.hasPurple.push_back(mine);
     }
 
     return hist;
 }
-
