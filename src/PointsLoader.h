@@ -102,11 +102,12 @@ bool gotPurpleForUser(const std::string& line, const std::string& primaryUser);
 
 std::vector<PrimaryRaid> loadPrimary(const std::string& path);
 
-std::vector<PointsRaid> loadPointsFile(const std::string& path);
+std::vector<PointsRaid> loadPointsFile(const std::string& path, bool soloCM = false);
 
 std::map<int, int> loadPoints(
-    const std::string& primaryPath,
-    const std::string& pointsPath);
+    const std::string& timesPath,
+    const std::string& pointsPath,
+    bool soloCM = false);
 
 int readMaxCoxKC(const std::string& coxTimesPath);
 

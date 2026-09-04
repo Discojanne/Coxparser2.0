@@ -125,9 +125,10 @@ std::vector<PrimaryRaid> loadPrimary(const std::string& path)
             raidTime = parseTimeMMSS(line.substr(colon + 1, pipe - colon - 1));
         }
 
-        else if (line.rfind("CoX KC:", 0) == 0)
+        else if (line.rfind("CoX KC:", 0) == 0 || line.rfind("CoX CM KC:", 0) == 0)
         {
-            kc = parseIntWithCommas(line.substr(7));
+            auto colon = line.find(':');
+            kc = parseIntWithCommas(line.substr(colon + 1));
             if (raidTime > 0 && floor1Time > 0)
             {
                 raids.push_back({ kc, raidTime, floor1Time });
@@ -139,7 +140,7 @@ std::vector<PrimaryRaid> loadPrimary(const std::string& path)
     return raids;
 }
 
-std::vector<PointsRaid> loadPointsFile(const std::string& path)
+std::vector<PointsRaid> loadPointsFile(const std::string& path, bool soloCM)
 {
     std::ifstream file(path);
     std::string line;
@@ -151,7 +152,8 @@ std::vector<PointsRaid> loadPointsFile(const std::string& path)
         if (isLeagueProfile(line))
             continue;
 
-        bool challenge = true;
+        // Default opposite of the join we want so a missing field is skipped.
+        bool challenge = !soloCM;
         int teamSize = -1;
         int raidTime = -1;
         int upperTime = -1;
@@ -160,7 +162,7 @@ std::vector<PointsRaid> loadPointsFile(const std::string& path)
         extractBool(line, "\"challengeMode\"", challenge);
         extractInt(line, "\"teamSize\"", teamSize);
 
-        if (challenge || teamSize != 1)
+        if (challenge != soloCM || teamSize != 1)
             continue;
 
         extractInt(line, "\"raidTime\"", raidTime);
@@ -194,11 +196,12 @@ bool pointsTimesMatch(const PrimaryRaid& p, const PointsRaid& q, int tol)
 }
 
 std::map<int, int> loadPoints(
-    const std::string& primaryPath,
-    const std::string& pointsPath)
+    const std::string& timesPath,
+    const std::string& pointsPath,
+    bool soloCM)
 {
-    auto primary = loadPrimary(primaryPath);
-    auto points = loadPointsFile(pointsPath);
+    auto primary = loadPrimary(timesPath);
+    auto points = loadPointsFile(pointsPath, soloCM);
 
     std::map<int, int> result;
 

@@ -36,7 +36,7 @@ ASCII table printing is brittle and change-sensitive.
 |--------|----------------|------|
 | Cox times (primary) | `~\.runelite\cox-analytics\Disco Turtle_CoxTimes.txt` | Room times, **regular CoX KC** |
 | Cox times (KGod) | `~\.runelite\cox-analytics\KGod_CoxTimes.txt` | Comparison times only |
-| CM times | `~\.runelite\cox-analytics\Disco Turtle_CmTimes.txt` | **CM KC** ground truth (no deep CM time analysis) |
+| CM times | `~\.runelite\cox-analytics\Disco Turtle_CmTimes.txt` | **CM KC** ground truth; solo CM time tables when `TIMES_SOLO_CM` |
 | Points / loot | `~\.runelite\raid-data tracker\cox\raid_tracker_data.log` | JSON lines: points, team size, CM, special loot. Regular + CM + League mixed — **skip League** |
 
 **KC ground truth:** max `CoX KC` / `CoX CM KC` in the times files = in-game.
@@ -51,8 +51,8 @@ Paths and other toggles live in `src/Config.cpp` (not hardcoded in `CoxParser.cp
 2. Join solo non-CM points by raid duration + Floor1/upper (±3s), newest→oldest.
 3. Attach points → drop no-points raids → optional last-N trim.
 4. Derive Pre-Olm / Between-rooms / `totalSeconds`.
-5. **Account breakdown + death estimate + purple math** from full joined set + points log (before layout filter).
-6. **`LAYOUT_FILTER`** — time/PPH/outlier/prep tables only (does **not** affect loot/death math).
+5. **Account breakdown + death estimate + purple math** from full regular joined set + points log (before layout filter / CM times view).
+6. **Times view** — regular: **`LAYOUT_FILTER`** on CoxTimes. `TIMES_SOLO_CM`: CmTimes Team Size 1, same points join (`challengeMode` + teamSize 1), no layout filter. Compare column uses `SECONDARY_CM_FILE` if that file exists and has solos; otherwise off. Last N is last N of that set. Does **not** affect loot/death math.
 7. Print time tables, then colored **LOOT & PURPLE ANALYSIS** section (death estimate first).
 
 ---
@@ -95,7 +95,7 @@ League `completionCount` 1/2 etc. are **not** main KC.
 
 ## Points join (fragile; hardened for plugin bugs)
 
-Join is newest→oldest on solo non-CM rows:
+Join is newest→oldest on solo rows (regular: non-CM; `TIMES_SOLO_CM`: challengeMode + teamSize 1):
 
 - Prefer match on `raidTime` **and** Floor1/`upperTime` (±3s).
 - Raid-data tracker sometimes writes `"upperTime": -1` for valid solos. Those rows are **kept**; match falls back to **raidTime only**.
@@ -183,7 +183,7 @@ Thresholds: `DEATH_THRESHOLD_*` in `Config.cpp`.
 
 Edit here so `CoxParser.cpp` does not recompile for loot/path tweaks.
 
-- Paths, `SESSION_RAIDS`, `LAYOUT_FILTER`
+- Paths, `SESSION_RAIDS`, `LAYOUT_FILTER`, `TIMES_SOLO_CM`
 - `PRINT_PURPLE_SUMMARY`, `PURPLE_VIEW_POST_ONLY`
 - `RATE_CHANGE_KC`, `RATE_CHANGE_CM_KC`
 - `ACTUAL_ITEM_COUNTS`, `UNTRACKED_AVG_POINTS`
@@ -195,7 +195,8 @@ Declarations: `src/Config.h`.
 
 ## Important behaviors
 
-- **Layout filter:** rooms/times only; loot/death/CM equiv/expected use pre-filter joined set.
+- **Layout filter:** rooms/times only; loot/death/CM equiv/expected use pre-filter joined set. Skipped when `TIMES_SOLO_CM`.
+- **`TIMES_SOLO_CM`:** times/PPH table from solo CM (CmTimes + points join); purple section unchanged. KGod compare uses `SECONDARY_CM_FILE` when present.
 - **League:** excluded everywhere points log is read (`isLeagueProfile`).
 - **Going forward with full logging:** new raids use real data; historical untracked/CM-missing estimates stay as gaps.
 - **KGod CoxTimes** may use decimal seconds (`1:00.0`); parser must still read them for comparison.
@@ -204,7 +205,7 @@ Declarations: `src/Config.h`.
 
 ## Out of scope / low priority
 
-- Deep CM **time** analysis
+- Deep CM **time** analysis beyond the `TIMES_SOLO_CM` table
 - Fragile ASCII printer rework unless needed
 - External team-CM tool
 
@@ -225,4 +226,4 @@ Declarations: `src/Config.h`.
 
 ## One-liner for a new agent
 
-**Coxparser joins Disco Turtle solo CoxTimes to raid-tracker points for time/PPH; excludes League; config is in Config.cpp; points join tolerates missing upperTime; loot actuals = ACTUAL_ITEM_COUNTS; overall expected = pts/867600; item expectations blend pre(69)/post-reg(60)/post-CM(56) via RATE_CHANGE_* cutoffs; PURPLE_VIEW_POST_ONLY toggles post-only loot view; death estimate from personal-pts thresholds by layout; layout filter does not affect loot/death math; KGod is times-only.**
+**Coxparser joins Disco Turtle solo CoxTimes to raid-tracker points for time/PPH; excludes League; config is in Config.cpp; TIMES_SOLO_CM swaps the times table to solo CM (same join, no layout filter) without changing loot/death math; CM compare uses SECONDARY_CM_FILE if present; points join tolerates missing upperTime; loot actuals = ACTUAL_ITEM_COUNTS; overall expected = pts/867600; item expectations blend pre(69)/post-reg(60)/post-CM(56) via RATE_CHANGE_* cutoffs; PURPLE_VIEW_POST_ONLY toggles post-only loot view; death estimate from personal-pts thresholds by layout; layout filter does not affect loot/death math; KGod is times-only.**

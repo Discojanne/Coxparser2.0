@@ -79,7 +79,7 @@ void printDiscardedOutliers(const std::vector<std::tuple<int, std::string, int, 
     const std::string& label);
 
 void printAnalysisSummary(const std::string& primaryUser, int totalRaids, bool hasSecondary, const std::string& secondaryUser, 
-    int pastRaids, int secondaryRaidsCount);
+    int pastRaids, int secondaryRaidsCount, bool timesSoloCm = false);
 
 void printRoomPPHTable(const std::vector<RoomPPHResult>& rows);
 

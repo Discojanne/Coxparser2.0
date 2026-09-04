@@ -12,10 +12,13 @@ const std::string SECONDARY_FILE =
     "C:\\Users\\DB96\\.runelite\\cox-analytics\\KGod_CoxTimes.txt";
 const std::string CM_FILE =
     "C:\\Users\\DB96\\.runelite\\cox-analytics\\Disco Turtle_CmTimes.txt";
+const std::string SECONDARY_CM_FILE =
+    "C:\\Users\\DB96\\.runelite\\cox-analytics\\KGod_CmTimes.txt";
 const std::string POINTS_FILE =
     "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
 
 const LayoutFilter LAYOUT_FILTER = LayoutFilter::FullOnly;
+const bool TIMES_SOLO_CM = false; // true = solo CM (times/points/PPH); layout filter ignored
 bool PRINT_PURPLE_SUMMARY = true;
 bool PURPLE_VIEW_POST_ONLY = true; // true = loot section uses only post-split data
 

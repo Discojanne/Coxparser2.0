@@ -16,9 +16,11 @@ extern const int SESSION_RAIDS;
 extern const std::string PRIMARY_FILE;
 extern const std::string SECONDARY_FILE;
 extern const std::string CM_FILE;
+extern const std::string SECONDARY_CM_FILE;
 extern const std::string POINTS_FILE;
 
 extern const LayoutFilter LAYOUT_FILTER;
+extern const bool TIMES_SOLO_CM; // times tables from solo CM; layout filter ignored
 extern bool PRINT_PURPLE_SUMMARY;
 extern bool PURPLE_VIEW_POST_ONLY;
 

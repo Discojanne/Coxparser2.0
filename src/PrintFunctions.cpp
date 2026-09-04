@@ -155,7 +155,7 @@ void printStatsTable(const std::map<std::string, Stats>& primaryStats, const std
     }
     std::cout << std::string(totalWidth, '=') << "\n";
 	double avgPurp = (Points.average > 0) ? (867600.0 / Points.average) : 0.0;
-    std::cout << "Purple on every " << std::fixed << std::setprecision(2) << avgPurp << " kills, based on average points.\n\n";
+    std::cout << "Purple pace (this table): 1 in " << std::fixed << std::setprecision(2) << avgPurp << "\n\n";
 }
 
 void printMostCommonPrepRooms(const std::vector<std::pair<std::string, const Stats*>>& common, int raids5, int raids6, int raidsOther, int totalRaids)
@@ -223,9 +223,10 @@ void printDiscardedOutliers(const std::vector<std::tuple<int, std::string, int, 
 }
 
 void printAnalysisSummary(const std::string& primaryUser, int totalRaids, bool hasSecondary, const std::string& secondaryUser,
-    int pastRaids, int secondaryRaidsCount) {
+    int pastRaids, int secondaryRaidsCount, bool timesSoloCm) {
     std::cout << "Analyzing " << (pastRaids == -1 ? "all" : "last " + std::to_string(pastRaids))
-        << " solo raids from " << primaryUser << " (" << totalRaids << " raids)\n";
+        << (timesSoloCm ? " solo CM raids from " : " solo raids from ")
+        << primaryUser << " (" << totalRaids << " raids)\n";
     if (hasSecondary) {
         std::cout << "Comparison vs " << secondaryUser << " (" << secondaryRaidsCount << " raids)\n";
     }

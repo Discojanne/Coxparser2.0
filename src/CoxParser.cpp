@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <cmath>
 #include <algorithm>
+#include <filesystem>
 
 #include "PrintFunctions.h"
 #include "CoxParser.h"
@@ -18,9 +19,10 @@ void runCoxAnalytics()
     const int actualPurples = sumActualPurples(ACTUAL_ITEM_COUNTS);
 
     // ========================== INPUT ==========================
-    std::vector<Raid> primaryRaids, secondaryRaids;
+    // Regular CoxTimes join is always loaded for loot / purple math.
+    std::vector<Raid> regularRaids, secondaryRaids;
 
-    if (!readRaids(PRIMARY_FILE, primaryRaids))
+    if (!readRaids(PRIMARY_FILE, regularRaids))
     {
         std::cerr << "Failed to read primary file\n";
         return;
@@ -38,25 +40,24 @@ void runCoxAnalytics()
     const int cmKC = readMaxCmKC(CM_FILE);
 
     // ======================= POINTS JOIN =======================
-    // Order: attach -> filter -> trim
-    auto pointsMap = loadPoints(PRIMARY_FILE, POINTS_FILE);
-    attachPointsToRaids(primaryRaids, pointsMap);
-    filterRaidsWithPoints(primaryRaids);
-    keepMostRecentRaids(primaryRaids, PAST_RAIDS);
+    // Order: attach -> drop unmatched -> trim. Regular join is loot ground truth.
+    attachAndKeepJoinedRaids(
+        regularRaids, loadPoints(PRIMARY_FILE, POINTS_FILE), PAST_RAIDS);
 
-    if (primaryRaids.empty())
+    if (regularRaids.empty())
     {
         std::cout << "No raids to analyze.\n";
         return;
     }
 
-    finalizeDerivedRaidTimes(primaryRaids);
+    finalizeDerivedRaidTimes(regularRaids);
     if (hasSecondary)
         finalizeDerivedRaidTimes(secondaryRaids);
 
     // ====================== ACCOUNT COUNTS =====================
-    // Loot / purple math uses the full joined set (layout must not affect this).
-    const int nTracked = static_cast<int>(primaryRaids.size());
+    // Loot / purple math uses the full regular joined set (times view must not
+    // affect this — not layout filter, not TIMES_SOLO_CM).
+    const int nTracked = static_cast<int>(regularRaids.size());
     auto pointsStats = summarizePointsLog(POINTS_FILE);
     const DeathStats deathStats = summarizeDeathStats(
         POINTS_FILE,
@@ -69,7 +70,7 @@ void runCoxAnalytics()
     {
         long long sum = 0;
         int n = 0;
-        for (const auto& r : primaryRaids)
+        for (const auto& r : regularRaids)
         {
             if (r.totalPoints > 0)
             {
@@ -84,21 +85,51 @@ void runCoxAnalytics()
     const AccountBreakdown breakdown = buildAccountBreakdown(
         regularKC, cmKC, nTracked, avgTrackedPoints, pointsStats);
 
-    // Layout filter: time / PPH / outlier tables only
-    filterByLayout(primaryRaids, LAYOUT_FILTER);
-    filterByLayout(secondaryRaids, LAYOUT_FILTER);
-
-    if (primaryRaids.empty())
+    // ======================== TIMES VIEW =======================
+    std::vector<Raid> timeRaids;
+    if (TIMES_SOLO_CM)
     {
-        std::cout << "No raids left after layout filter.\n";
+        if (!readRaids(CM_FILE, timeRaids))
+        {
+            std::cerr << "Failed to read CM times file\n";
+            return;
+        }
+        attachAndKeepJoinedRaids(
+            timeRaids, loadPoints(CM_FILE, POINTS_FILE, /*soloCM*/ true), PAST_RAIDS);
+        finalizeDerivedRaidTimes(timeRaids);
+
+        hasSecondary = false;
+        secondaryRaids.clear();
+        if (std::filesystem::exists(SECONDARY_CM_FILE)
+            && readRaids(SECONDARY_CM_FILE, secondaryRaids)
+            && !secondaryRaids.empty())
+        {
+            keepMostRecentRaids(secondaryRaids, PAST_RAIDS);
+            finalizeDerivedRaidTimes(secondaryRaids);
+            hasSecondary = true;
+            secondaryUser = getUsername(SECONDARY_CM_FILE);
+        }
+    }
+    else
+    {
+        timeRaids = regularRaids;
+        filterByLayout(timeRaids, LAYOUT_FILTER);
+        filterByLayout(secondaryRaids, LAYOUT_FILTER);
+    }
+
+    if (timeRaids.empty())
+    {
+        std::cout << (TIMES_SOLO_CM
+            ? "No solo CM raids with times + points.\n"
+            : "No raids left after layout filter.\n");
         return;
     }
 
     // ====================== AGGREGATION ========================
-    auto agg = computePointsStats(primaryRaids);
+    auto agg = computePointsStats(timeRaids);
 
     PointsToPrint pointStats = makePointsToPrint(
-        agg.bestPoints, agg.avgPoints, primaryRaids.back().totalPoints);
+        agg.bestPoints, agg.avgPoints, timeRaids.back().totalPoints);
     PointsToPrint pphStats = makePointsToPrint(
         agg.bestPPH, agg.avgPPH, agg.recentPPH);
 
@@ -107,21 +138,23 @@ void runCoxAnalytics()
     if (hasSecondary)
         secondaryStats = initializeStats();
 
-    aggregateStats(primaryStats, primaryRaids);
+    // CM rooms are slower than regular outlier caps; keep <20s junk filter only.
+    const bool applyRoomOutlierRefs = !TIMES_SOLO_CM;
+    aggregateStats(primaryStats, timeRaids, 0, applyRoomOutlierRefs);
     if (hasSecondary)
-        aggregateStats(secondaryStats, secondaryRaids);
+        aggregateStats(secondaryStats, secondaryRaids, 0, applyRoomOutlierRefs);
 
-    auto recentTimes = computeRecentRaidTimes(primaryRaids);
+    auto recentTimes = computeRecentRaidTimes(timeRaids);
     auto common = computeMostCommonRooms(primaryStats);
-    RoomDistribution rd = computeRoomDistribution(primaryRaids);
+    RoomDistribution rd = computeRoomDistribution(timeRaids);
 
     auto primaryDiscarded = collectAndSortDiscarded(primaryStats);
     std::vector<std::tuple<int, std::string, int, std::string>> secondaryDiscarded;
     if (hasSecondary)
         secondaryDiscarded = collectAndSortDiscarded(secondaryStats);
 
-    auto roomPPH = computeRoomPPH(primaryRaids);
-    auto lastNAvg = computeLastNStats(primaryRaids, SESSION_RAIDS);
+    auto roomPPH = computeRoomPPH(timeRaids);
+    auto lastNAvg = computeLastNStats(timeRaids, SESSION_RAIDS);
     int totalWidth = computeTotalWidth(hasSecondary);
 
     // ===================== PURPLE SUMMARY ========================
@@ -208,9 +241,10 @@ void runCoxAnalytics()
 
     // ======================== OUTPUT ===========================
     printAnalysisSummary(
-        primaryUser, static_cast<int>(primaryRaids.size()),
+        primaryUser, static_cast<int>(timeRaids.size()),
         hasSecondary, secondaryUser,
-        PAST_RAIDS, static_cast<int>(secondaryRaids.size()));
+        PAST_RAIDS, static_cast<int>(secondaryRaids.size()),
+        TIMES_SOLO_CM);
 
     printRaidStatisticsHeader(
         primaryUser, secondaryUser, hasSecondary, totalWidth, SESSION_RAIDS);
@@ -219,12 +253,12 @@ void runCoxAnalytics()
         primaryStats, secondaryStats, recentTimes, secondaryUser,
         totalWidth, hasSecondary, pphStats, pointStats, lastNAvg);
 
-    if (LAYOUT_FILTER != LayoutFilter::FullOnly)
+    if (!TIMES_SOLO_CM && LAYOUT_FILTER != LayoutFilter::FullOnly)
     {
         printRoomPPHTable(roomPPH);
         printMostCommonPrepRooms(
             common, rd.five, rd.six, rd.other,
-            static_cast<int>(primaryRaids.size()));
+            static_cast<int>(timeRaids.size()));
     }
 
     printDiscardedOutliers(primaryDiscarded, primaryUser, "Primary");

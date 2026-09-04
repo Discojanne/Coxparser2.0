@@ -3,16 +3,16 @@
 #include <fstream>
 #include <filesystem>
 #include <cctype>
-#include <cstring>
 
 #include "InputFunctions.h"
-#include "PointsLoader.h"
 
 
 std::string getUsername(const std::string& path) {
     std::filesystem::path p(path);
     std::string name = p.filename().stem().string();
     size_t pos = name.find("_CoxTimes");
+    if (pos == std::string::npos)
+        pos = name.find("_CmTimes");
     if (pos != std::string::npos) name = name.substr(0, pos);
     std::replace(name.begin(), name.end(), '_', ' ');
     return name;
@@ -103,50 +103,4 @@ bool readRaids(const std::string& filename, std::vector<Raid>& raids) {
     }
 
     return !raids.empty();
-}
-
-PurpleHistory loadPurpleHistory(
-    const std::string& logFile,
-    const std::string& primaryUser)
-{
-    PurpleHistory hist;
-
-    std::ifstream file(logFile);
-    if (!file.is_open())
-        return hist;
-
-    std::string line;
-    while (std::getline(file, line))
-    {
-        if (line.empty())
-            continue;
-
-        if (isLeagueProfile(line))
-            continue;
-
-        int personalPoints = 0;
-        if (!extractInt(line, "\"personalPoints\"", personalPoints) || personalPoints <= 0)
-            continue;
-
-        int teamSize = 0;
-        extractInt(line, "\"teamSize\"", teamSize);
-        if (teamSize < 1)
-            continue;
-
-        bool challenge = false;
-        extractBool(line, "\"challengeMode\"", challenge);
-
-        const bool mine = gotPurpleForUser(line, primaryUser);
-
-        if (challenge)
-        {
-            ++hist.cmRaids;
-            if (mine)
-                ++hist.cmPurples;
-        }
-
-        hist.hasPurple.push_back(mine);
-    }
-
-    return hist;
 }

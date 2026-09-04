@@ -17,15 +17,15 @@ std::string secondsToTime(int seconds)
     return oss.str();
 }
 
-void processStats(std::map<std::string, Stats>& stats, const std::string& key, const std::vector<Raid>& raids, size_t start)
+static void processStats(std::map<std::string, Stats>& stats, const std::string& key, const std::vector<Raid>& raids, size_t start, bool applyRoomOutlierRefs)
 {
     auto& s = stats[key];
 
     double sum = 0.0;
     int best = INT_MAX;
 
-    const bool hasMinRef = ROOM_REFERENCE_FOR_OUTLIERS.count(key);
-    const bool hasMaxRef = ROOM_MAX_REFERENCE.count(key);
+    const bool hasMinRef = applyRoomOutlierRefs && ROOM_REFERENCE_FOR_OUTLIERS.count(key);
+    const bool hasMaxRef = applyRoomOutlierRefs && ROOM_MAX_REFERENCE.count(key);
 
     const int minRef = hasMinRef ? ROOM_REFERENCE_FOR_OUTLIERS.at(key) : 0;
     const int maxRef = hasMaxRef ? ROOM_MAX_REFERENCE.at(key) : INT_MAX;
@@ -88,10 +88,10 @@ std::map<std::string, Stats> initializeStats()
 	return stats;
 }
 
-void aggregateStats(std::map<std::string, Stats>& stats, const std::vector<Raid>& raids, size_t start)
+void aggregateStats(std::map<std::string, Stats>& stats, const std::vector<Raid>& raids, size_t start, bool applyRoomOutlierRefs)
 {
     for (const auto& k : DISPLAY_ORDER) {
-        processStats(stats, k, raids, start);
+        processStats(stats, k, raids, start, applyRoomOutlierRefs);
     }
 }
 
@@ -122,16 +122,6 @@ RoomDistribution computeRoomDistribution(const std::vector<Raid>& raids)
     }
 
     return rd;
-}
-
-int computeCountPad(const std::map<std::string, Stats>& stats)
-{
-    // Determine width for prep-room count column (for table alignment)
-    int maxPrepCount = 0;
-    for (const auto& room : PREP_ROOMS) {
-        maxPrepCount = std::max(maxPrepCount, stats.at(room).validCount);
-    }
-    return (maxPrepCount == 0) ? 1 : static_cast<int>(std::to_string(maxPrepCount).length());
 }
 
 std::vector<std::tuple<int, std::string, int, std::string>> collectAndSortDiscarded(const std::map<std::string, Stats>& stats)
@@ -173,7 +163,7 @@ int computeTotalWidth(bool hasSecondary)
 }
 
 
-void attachPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap)
+static void attachPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& pointsMap)
 {
     for (auto& r : raids)
     {
@@ -185,7 +175,7 @@ void attachPointsToRaids(std::vector<Raid>& raids, const std::map<int, int>& poi
     }
 }
 
-void filterRaidsWithPoints(std::vector<Raid>& raids)
+static void filterRaidsWithPoints(std::vector<Raid>& raids)
 {
     raids.erase(
         std::remove_if(
@@ -206,6 +196,16 @@ void keepMostRecentRaids(std::vector<Raid>& raids, int maxCount)
     raids.erase(
         raids.begin(),
         raids.end() - maxCount);
+}
+
+void attachAndKeepJoinedRaids(
+    std::vector<Raid>& raids,
+    const std::map<int, int>& pointsMap,
+    int maxCount)
+{
+    attachPointsToRaids(raids, pointsMap);
+    filterRaidsWithPoints(raids);
+    keepMostRecentRaids(raids, maxCount);
 }
 
 
@@ -318,7 +318,7 @@ std::vector<RoomPPHResult> computeRoomPPH(const std::vector<Raid>& raids)
 }
 
 
-double computeLastNTimeAvg(const std::vector<Raid>& raids, const std::string& key, int N)
+static double computeLastNTimeAvg(const std::vector<Raid>& raids, const std::string& key, int N)
 {
     if (raids.empty())
         return 0.0;
@@ -340,7 +340,7 @@ double computeLastNTimeAvg(const std::vector<Raid>& raids, const std::string& ke
     return (count > 0) ? (sum / count) : 0.0;
 }
 
-double computeLastNPPH(const std::vector<Raid>& raids, int N)
+static double computeLastNPPH(const std::vector<Raid>& raids, int N)
 {
     int start = std::max(0, (int)raids.size() - N);
     double sum = 0.0;
@@ -359,7 +359,7 @@ double computeLastNPPH(const std::vector<Raid>& raids, int N)
     return (count > 0) ? (sum / count) : 0.0;
 }
 
-double computeLastNPoints(const std::vector<Raid>& raids, int N)
+static double computeLastNPoints(const std::vector<Raid>& raids, int N)
 {
     double sum = 0.0;
     int count = 0;
@@ -429,7 +429,7 @@ std::map<std::string, double> computeLastNStats(const std::vector<Raid>& raids, 
     return result;
 }
 
-int countPrepRooms(const Raid& r)
+static int countPrepRooms(const Raid& r)
 {
     int count = 0;
     for (const auto& room : PREP_ROOMS)
