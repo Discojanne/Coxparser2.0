@@ -54,8 +54,6 @@ struct AccountBreakdown
 };
 
 // Post-cutoff slice of the points log (unique-table weight change).
-// Post rows = last max(0, currentKC - cutoff) regular/CM completions in log order
-// (robust when completionCount is -1).
 struct PurpleEraAnalysis
 {
     long long pointsPostRegular = 0;
@@ -69,6 +67,21 @@ struct PurpleEraAnalysis
     std::map<std::string, int> itemsPost; // reg + CM combined
     PurpleHistory historyAll;
     PurpleHistory historyPost;
+};
+
+// Raids flagged as "died" when personal points fall below layout-specific cutoffs.
+struct DeathStats
+{
+    int total = 0;
+    int deaths = 0;
+    int nFullRegular = 0;
+    int deathsFullRegular = 0;
+    int nNormalRegular = 0;
+    int deathsNormalRegular = 0;
+    int nCmSolo = 0;
+    int deathsCmSolo = 0;
+    int nCmTeam = 0;
+    int deathsCmTeam = 0;
 };
 
 int parseTimeMMSS(const std::string& s);
@@ -100,6 +113,13 @@ int readMaxCoxKC(const std::string& coxTimesPath);
 int readMaxCmKC(const std::string& cmTimesPath);
 
 PointsLogStats summarizePointsLog(const std::string& pointsPath);
+
+DeathStats summarizeDeathStats(
+    const std::string& pointsPath,
+    int thresholdFullRegular,
+    int thresholdRegular,
+    int thresholdCmSolo,
+    int thresholdCmTeam);
 
 AccountBreakdown buildAccountBreakdown(
     int regularKC,

@@ -258,6 +258,45 @@ void printAccountBreakdown(const AccountBreakdown& b)
     std::cout << "\n";
 }
 
+void printDeathStats(const DeathStats& d)
+{
+    if (d.total <= 0)
+        return;
+
+    std::cout << "Death estimate (from pts)\n";
+    std::cout << std::string(40, '-') << "\n";
+
+    auto row = [](const char* label, const std::string& value)
+    {
+        std::cout << std::left << std::setw(22) << label
+            << std::right << std::setw(16) << value << "\n";
+    };
+
+    auto formatLine = [](int deaths, int total)
+    {
+        std::ostringstream s;
+        const double pct = (total > 0)
+            ? 100.0 * static_cast<double>(deaths) / total
+            : 0.0;
+        s << deaths << "/" << total
+            << "  (" << std::fixed << std::setprecision(1) << pct << "%)";
+        return s.str();
+    };
+
+    row("Raids with death", formatLine(d.deaths, d.total));
+
+    if (d.nFullRegular > 0)
+        row("  Full regular", formatLine(d.deathsFullRegular, d.nFullRegular));
+    if (d.nNormalRegular > 0)
+        row("  Regular", formatLine(d.deathsNormalRegular, d.nNormalRegular));
+    if (d.nCmSolo > 0)
+        row("  CM solo", formatLine(d.deathsCmSolo, d.nCmSolo));
+    if (d.nCmTeam > 0)
+        row("  CM team", formatLine(d.deathsCmTeam, d.nCmTeam));
+
+    std::cout << "\n";
+}
+
 void printSectionDivider(const std::string& title, int width)
 {
     const std::string line(width, '=');

@@ -333,6 +333,127 @@ PointsLogStats summarizePointsLog(const std::string& pointsPath)
     return stats;
 }
 
+namespace {
+constexpr const char* PREP_TIME_KEYS[] = {
+    "\"tektonTime\"",
+    "\"crabsTime\"",
+    "\"iceDemonTime\"",
+    "\"shamansTime\"",
+    "\"vanguardsTime\"",
+    "\"thievingTime\"",
+    "\"vespulaTime\"",
+    "\"tightropeTime\"",
+    "\"guardiansTime\"",
+    "\"vasaTime\"",
+    "\"mysticsTime\"",
+    "\"muttadilesTime\"",
+};
+
+// CoxTimes full layout = 12 prep rooms; the tracker log rarely logs all 12
+// (typically 11 when full). Treat 11+ logged prep times as full layout.
+constexpr int FULL_PREP_ROOMS_IN_LOG = 11;
+
+int countPrepRoomsInLogLine(const std::string& line)
+{
+    int count = 0;
+    for (const char* key : PREP_TIME_KEYS)
+    {
+        int t = 0;
+        if (extractInt(line, key, t) && t > 0)
+            ++count;
+    }
+    return count;
+}
+}
+
+DeathStats summarizeDeathStats(
+    const std::string& pointsPath,
+    int thresholdFullRegular,
+    int thresholdRegular,
+    int thresholdCmSolo,
+    int thresholdCmTeam)
+{
+    DeathStats stats;
+    std::ifstream file(pointsPath);
+    if (!file.is_open())
+        return stats;
+
+    const int fullPrepCount = FULL_PREP_ROOMS_IN_LOG;
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (line.empty() || isLeagueProfile(line))
+            continue;
+
+        int personalPoints = 0;
+        if (!extractInt(line, "\"personalPoints\"", personalPoints) || personalPoints <= 0)
+            continue;
+
+        int teamSize = 0;
+        extractInt(line, "\"teamSize\"", teamSize);
+        if (teamSize < 1)
+            continue;
+
+        bool challenge = false;
+        extractBool(line, "\"challengeMode\"", challenge);
+
+        if (challenge)
+        {
+            if (teamSize == 1)
+            {
+                ++stats.nCmSolo;
+                ++stats.total;
+                if (personalPoints < thresholdCmSolo)
+                {
+                    ++stats.deathsCmSolo;
+                    ++stats.deaths;
+                }
+            }
+            else
+            {
+                ++stats.nCmTeam;
+                ++stats.total;
+                if (personalPoints < thresholdCmTeam)
+                {
+                    ++stats.deathsCmTeam;
+                    ++stats.deaths;
+                }
+            }
+            continue;
+        }
+
+        if (teamSize != 1)
+            continue;
+
+        const int prepCount = countPrepRoomsInLogLine(line);
+        const bool fullLayout = (prepCount >= fullPrepCount);
+
+        if (fullLayout)
+        {
+            ++stats.nFullRegular;
+            ++stats.total;
+            if (personalPoints < thresholdFullRegular)
+            {
+                ++stats.deathsFullRegular;
+                ++stats.deaths;
+            }
+        }
+        else
+        {
+            ++stats.nNormalRegular;
+            ++stats.total;
+            if (personalPoints < thresholdRegular)
+            {
+                ++stats.deathsNormalRegular;
+                ++stats.deaths;
+            }
+        }
+    }
+
+    return stats;
+}
+
 AccountBreakdown buildAccountBreakdown(
     int regularKC,
     int cmKC,

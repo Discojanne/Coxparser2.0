@@ -15,4 +15,6 @@ void printPurpleHistory(const PurpleHistory& hist,
 
 void printAccountBreakdown(const AccountBreakdown& b);
 
+void printDeathStats(const DeathStats& d);
+
 void printSectionDivider(const std::string& title, int width = 100);

@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\ComputeFunctions.cpp" />
+    <ClCompile Include="src\Config.cpp" />
     <ClCompile Include="src\CoxParser.cpp" />
     <ClCompile Include="src\InputFunctions.cpp" />
     <ClCompile Include="src\itemCompute.cpp" />
@@ -30,6 +31,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\ComputeFunctions.h" />
+    <ClInclude Include="src\Config.h" />
     <ClInclude Include="src\CoxParser.h" />
     <ClInclude Include="src\InputFunctions.h" />
     <ClInclude Include="src\itemCompute.h" />

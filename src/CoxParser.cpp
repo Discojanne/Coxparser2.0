@@ -5,50 +5,12 @@
 
 #include "PrintFunctions.h"
 #include "CoxParser.h"
+#include "Config.h"
 #include "InputFunctions.h"
 #include "ComputeFunctions.h"
 #include "PointsLoader.h"
 #include "itemCompute.h"
 #include "itemPrint.h"
-
-// ========================== CONFIG =============================
-constexpr int ALL_RAIDS = -1;
-constexpr int PAST_RAIDS = ALL_RAIDS;   // ALL_RAIDS or a number
-constexpr int SESSION_RAIDS = 10;       // "Last N" averages
-
-const std::string PRIMARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Disco Turtle_CoxTimes.txt";
-const std::string SECONDARY_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\KGod_CoxTimes.txt";
-const std::string CM_FILE = "C:\\Users\\DB96\\.runelite\\cox-analytics\\Disco Turtle_CmTimes.txt";
-const std::string POINTS_FILE = "C:\\Users\\DB96\\.runelite\\raid-data tracker\\cox\\raid_tracker_data.log";
-
-constexpr LayoutFilter LAYOUT_FILTER = LayoutFilter::FullOnly;
-bool PRINT_PURPLE_SUMMARY = true;
-bool PURPLE_VIEW_POST_ONLY = true; // true = loot section uses only post-split data
-
-// Unique-table weight change cutoffs (set to your KC on update day).
-// Values above current KC keep everything in the pre-change table.
-constexpr int RATE_CHANGE_KC = 1832;
-constexpr int RATE_CHANGE_CM_KC = 138;
-
-// Manual constants (log gaps — update item counts when you get drops / revise untracked estimate)
-constexpr int UNTRACKED_AVG_POINTS = 28000; // assumed personal pts per untracked regular raid
-const std::map<std::string, int> ACTUAL_ITEM_COUNTS = {
-    {"Dexterous prayer scroll", 20},
-    {"Arcane prayer scroll",    17},
-
-    {"Twisted buckler",         3},
-    {"Dragon hunter crossbow",  3},
-
-    {"Dinh's bulwark",          1},
-    {"Ancestral hat",           5},
-    {"Ancestral robe top",      1},
-    {"Ancestral robe bottom",   4},
-    {"Dragon claws",            2},
-
-    {"Elder maul",              5},
-    {"Kodai insignia",          0},
-    {"Twisted bow",             0}
-};
 
 
 void runCoxAnalytics()
@@ -96,6 +58,12 @@ void runCoxAnalytics()
     // Loot / purple math uses the full joined set (layout must not affect this).
     const int nTracked = static_cast<int>(primaryRaids.size());
     auto pointsStats = summarizePointsLog(POINTS_FILE);
+    const DeathStats deathStats = summarizeDeathStats(
+        POINTS_FILE,
+        DEATH_THRESHOLD_FULL_REGULAR,
+        DEATH_THRESHOLD_REGULAR,
+        DEATH_THRESHOLD_CM_SOLO,
+        DEATH_THRESHOLD_CM_TEAM);
 
     double avgTrackedPoints = 0.0;
     {
@@ -269,6 +237,7 @@ void runCoxAnalytics()
             ? "LOOT & PURPLE ANALYSIS (post-split)"
             : "LOOT & PURPLE ANALYSIS";
         printSectionDivider(lootTitle, totalWidth);
+        printDeathStats(deathStats);
         if (!PURPLE_VIEW_POST_ONLY)
             printAccountBreakdown(breakdown);
         printPurpleSummary(purpleSummary);
