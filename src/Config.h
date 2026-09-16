@@ -22,6 +22,7 @@ extern const std::string POINTS_FILE;
 extern const LayoutFilter LAYOUT_FILTER;
 extern const bool TIMES_SOLO_CM; // times tables from solo CM; layout filter ignored
 extern bool PRINT_PURPLE_SUMMARY;
+extern bool PRINT_TRACKED_PURPLES;
 extern bool PURPLE_VIEW_POST_ONLY;
 
 extern const int RATE_CHANGE_KC;

@@ -617,3 +617,69 @@ PurpleEraAnalysis loadPurpleEraAnalysis(
 
     return out;
 }
+
+std::vector<TrackedPurple> loadTrackedPurples(
+    const std::string& pointsPath,
+    const std::string& primaryUser,
+    const std::string& coxTimesPath)
+{
+    struct Row
+    {
+        TrackedPurple drop;
+        int raidSeconds = -1;
+        int upperSeconds = -1;
+    };
+
+    std::vector<Row> rows;
+    std::ifstream file(pointsPath);
+    if (!file.is_open())
+        return {};
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (line.empty() || isLeagueProfile(line))
+            continue;
+
+        int personalPoints = 0;
+        if (!extractInt(line, "\"personalPoints\"", personalPoints) || personalPoints <= 0)
+            continue;
+
+        if (!gotPurpleForUser(line, primaryUser))
+            continue;
+
+        Row row;
+        extractString(line, "\"specialLoot\":\"", row.drop.item);
+        extractBool(line, "\"challengeMode\"", row.drop.challenge);
+        extractInt(line, "\"completionCount\"", row.drop.kc);
+        if (row.drop.kc <= 0)
+            row.drop.kc = -1;
+        extractInt(line, "\"raidTime\"", row.raidSeconds);
+        extractInt(line, "\"upperTime\"", row.upperSeconds);
+        rows.push_back(std::move(row));
+    }
+
+    const auto times = loadPrimary(coxTimesPath);
+    constexpr int TOL = 3;
+    for (auto& row : rows)
+    {
+        if (row.drop.kc > 0 || row.drop.challenge || row.raidSeconds <= 0)
+            continue;
+
+        PointsRaid q{ row.raidSeconds, row.upperSeconds, 1 };
+        int found = -1;
+        for (const auto& t : times)
+        {
+            if (pointsTimesMatch(t, q, TOL))
+                found = t.kc;
+        }
+        if (found > 0)
+            row.drop.kc = found;
+    }
+
+    std::vector<TrackedPurple> out;
+    out.reserve(rows.size());
+    for (auto& row : rows)
+        out.push_back(std::move(row.drop));
+    return out;
+}

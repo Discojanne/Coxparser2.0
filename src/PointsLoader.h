@@ -69,6 +69,14 @@ struct PurpleEraAnalysis
     PurpleHistory historyPost;
 };
 
+// One unique you received, from the points log (non-League).
+struct TrackedPurple
+{
+    std::string item;
+    bool challenge = false;
+    int kc = -1; // -1 if unknown
+};
+
 // Raids flagged as "died" when personal points fall below layout-specific cutoffs.
 struct DeathStats
 {
@@ -136,3 +144,8 @@ PurpleEraAnalysis loadPurpleEraAnalysis(
     int rateChangeCmKc,
     int regularKc,
     int cmKc);
+
+std::vector<TrackedPurple> loadTrackedPurples(
+    const std::string& pointsPath,
+    const std::string& primaryUser,
+    const std::string& coxTimesPath);

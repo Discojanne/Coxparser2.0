@@ -176,6 +176,7 @@ Thresholds: `DEATH_THRESHOLD_*` in `Config.cpp`.
 - Row width = largest multiple of `round(purple_rate)` under ~100 so `'` columns align.
 - Dry streaks = logged completions only (not untracked KC gaps).
 - Post-only view uses post-cutoff history only.
+- After the map: **tracked purple list** (newest first) when `PRINT_TRACKED_PURPLES`. KC from `completionCount` when present, else CoxTimes time-match for solo regulars; `--` if still unknown. Untracked drops are not in this list.
 
 ---
 
@@ -184,7 +185,7 @@ Thresholds: `DEATH_THRESHOLD_*` in `Config.cpp`.
 Edit here so `CoxParser.cpp` does not recompile for loot/path tweaks.
 
 - Paths, `SESSION_RAIDS`, `LAYOUT_FILTER`, `TIMES_SOLO_CM`
-- `PRINT_PURPLE_SUMMARY`, `PURPLE_VIEW_POST_ONLY`
+- `PRINT_PURPLE_SUMMARY`, `PRINT_TRACKED_PURPLES`, `PURPLE_VIEW_POST_ONLY`
 - `RATE_CHANGE_KC`, `RATE_CHANGE_CM_KC`
 - `ACTUAL_ITEM_COUNTS`, `UNTRACKED_AVG_POINTS`
 - `DEATH_THRESHOLD_*`

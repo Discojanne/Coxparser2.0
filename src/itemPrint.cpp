@@ -217,6 +217,29 @@ void printPurpleHistory(const PurpleHistory& hist,
     std::cout << "\n";
 }
 
+void printTrackedPurples(const std::vector<TrackedPurple>& drops)
+{
+    if (drops.empty())
+        return;
+
+    std::cout << "Tracked Purples (newest first)\n";
+    std::cout << std::string(48, '-') << "\n";
+
+    for (auto it = drops.rbegin(); it != drops.rend(); ++it)
+    {
+        std::ostringstream kc;
+        if (it->kc > 0)
+            kc << (it->challenge ? "CM " : "KC ") << it->kc;
+        else
+            kc << "--";
+
+        std::cout << std::left << std::setw(10) << kc.str()
+            << it->item << "\n";
+    }
+
+    std::cout << "\n";
+}
+
 void printAccountBreakdown(const AccountBreakdown& b)
 {
     std::cout << "Account Breakdown\n";

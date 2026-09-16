@@ -282,5 +282,10 @@ void runCoxAnalytics()
             100,
             breakdown.regularKC,
             historyActualPurples);
+        if (PRINT_TRACKED_PURPLES)
+        {
+            printTrackedPurples(
+                loadTrackedPurples(POINTS_FILE, primaryUser, PRIMARY_FILE));
+        }
     }
 }

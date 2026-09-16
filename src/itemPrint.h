@@ -13,6 +13,8 @@ void printPurpleHistory(const PurpleHistory& hist,
     int totalRaidsGlobal,
     int actualPurples);
 
+void printTrackedPurples(const std::vector<TrackedPurple>& drops);
+
 void printAccountBreakdown(const AccountBreakdown& b);
 
 void printDeathStats(const DeathStats& d);
